@@ -1,0 +1,10 @@
+{
+  "name": "Remix Remix Remix ZARA — Personal Pakistani AI Voice Assistant",
+  "description": "Personal Pakistani Urdu AI voice companion featuring real-time wake-word detection, emotion-reactive circular avatar, audio visualizer, Gemini 3.8 \u0026 4 reasoning backend, memory system, and WhatsApp dispatcher.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

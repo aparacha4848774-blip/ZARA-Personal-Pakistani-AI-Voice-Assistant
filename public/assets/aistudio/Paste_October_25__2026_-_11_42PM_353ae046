@@ -1,0 +1,1738 @@
+01 — Product Requirements Document (PRD)
+ZARA — Personal Pakistani AI Voice Assistant
+1. Project Overview
+Product Name: ZARA (Personal AI Voice Assistant)
+Product Type: Full-stack AI-powered voice assistant — Browser Web App + Windows Desktop Companion
+Primary Language: Pakistani Urdu (Roman Urdu + Urdu script support)
+AI Provider: Google Gemini API
+Target User: Single personal user (the owner/developer)
+2. Purpose & Goals
+#	Goal
+G1	ZARA ek always-ready personal AI assistant ho jo natural Pakistani Urdu mein baat kare
+G2	"Hello ZARA" bolne par automatically activate ho — bina kisi button ke
+G3	Realistic, human-like Pakistani Urdu voice mein jawab de
+G4	Apni distinct personality, emotions aur confidence rakhti ho
+G5	Browser aur Windows dono par simultaneously kaam kare
+G6	Google AI Studio band hone ke baad bhi standalone chale
+G7	WhatsApp messaging ka UI/flow ready ho (real integration baad mein)
+G8	User ki preferences aur context yaad rakhe
+3. Target Users & Roles
+Role	Description
+Owner (User)	Sirf ek user — ZARA ka maalik jo usse daily use karta hai
+(No admin panel, no multi-user system)	ZARA ek personal assistant hai, public app nahi
+4. Core Features (Functional Requirements)
+4.1 Personality & Emotion Engine
+Feature ID	Feature	Priority
+F-PE-01	EmotionEngine — current emotion state manage kare	Must Have
+F-PE-02	9 emotions: Happy, Sad, Angry, Confident, Caring, Humorous, Curious, Calm, Surprised, Focused	Must Have
+F-PE-03	Emotion intensity level (Low / Medium / High)	Must Have
+F-PE-04	Confidence level per response (High / Medium / Low / Unknown)	Must Have
+F-PE-05	Empathy level — user ki feelings ko response mein reflect kare	Must Have
+F-PE-06	Response style: concise ya detailed (context ke mutabiq)	Must Have
+F-PE-07	ZARA user ko "Boss" address kare by default	Must Have
+F-PE-08	Galti recognize karke self-correct kare	Should Have
+F-PE-09	Mushkil task ko steps mein divide kare	Should Have
+4.2 Voice Conversation
+Feature ID	Feature	Priority
+F-VC-01	Pakistani Urdu speech recognition	Must Have
+F-VC-02	Urdu + English mix (Hinglish-style) support	Must Have
+F-VC-03	Natural Urdu TTS (Text-to-Speech) via Gemini	Must Have
+F-VC-04	Voice Activity Detection — silence pe auto-stop	Must Have
+F-VC-05	Barge-in: ZARA bol rahi ho to user interrupt kar sake	Must Have
+F-VC-06	Auto-restart listening after ZARA finishes speaking	Must Have
+F-VC-07	Microphone + speaker device selection	Should Have
+F-VC-08	Voice speed & volume controls	Should Have
+F-VC-09	Audio buffering & reconnection handling	Must Have
+F-VC-10	Voice consistency across sessions	Should Have
+4.3 Wake Word Engine
+Feature ID	Feature	Priority
+F-WW-01	"Hello ZARA" — English wake word	Must Have
+F-WW-02	"Hey ZARA" — short English wake word	Must Have
+F-WW-03	"Assalam-o-Alaikum ZARA" — Urdu wake word	Must Have
+F-WW-04	"السلام علیکم زارا" — Urdu script wake word	Should Have
+F-WW-05	"Assalam-o-Alaikum" par auto-response: "Wa Alaikum Assalam, Boss!"	Must Have
+F-WW-06	No push-to-talk for normal conversation	Must Have
+F-WW-07	Listening indicator — screen par visible status	Must Have
+F-WW-08	Sleep Mode — voice command se temporarily disable	Should Have
+F-WW-09	False positive detection minimize karna	Should Have
+F-WW-10	Background noise handling	Should Have
+4.4 Gemini Model Manager
+Feature ID	Feature	Priority
+F-GM-01	Available Gemini models ki configurable registry	Must Have
+F-GM-02	Primary + fallback model configuration	Must Have
+F-GM-03	Task-specific model selection (text / audio / image)	Must Have
+F-GM-04	Connection test per model	Must Have
+F-GM-05	API error + quota limit handling	Must Have
+F-GM-06	API usage + estimated cost monitoring	Should Have
+F-GM-07	Server-side API key storage (never frontend exposed)	Must Have
+F-GM-08	Multiple API keys support (optional)	Nice to Have
+4.5 WhatsApp Integration (UI/Flow Ready — Real API Later)
+Feature ID	Feature	Priority
+F-WA-01	Voice se contact naam samajhna	Must Have (UI)
+F-WA-02	Message draft karna aur read-back	Must Have (UI)
+F-WA-03	Recipient + message confirmation step	Must Have (UI)
+F-WA-04	"Sending..." / success / failure status	Must Have (UI)
+F-WA-05	Message history + activity log	Should Have (UI)
+F-WA-06	Authorized contacts list	Should Have (UI)
+F-WA-07	Sensitive message extra confirmation	Should Have (UI)
+F-WA-08	WhatsApp disconnect option	Should Have (UI)
+Note	Real WhatsApp Business API integration baad mein — is phase mein sirf UI/UX flow	—
+4.6 Memory System
+Feature ID	Feature	Priority
+F-MM-01	Short-term memory: current conversation context	Must Have
+F-MM-02	Long-term memory: user-approved preferences	Must Have
+F-MM-03	Preferred name ("Boss"), language, voice settings save	Must Have
+F-MM-04	Recent task context retain karna	Must Have
+F-MM-05	Memory review + edit + delete UI	Must Have
+F-MM-06	Sensitive info auto-save nahi hogi — user control	Must Have
+F-MM-07	Data export option	Nice to Have
+F-MM-08	Configurable retention policy	Should Have
+4.7 Dashboard & UI
+Feature ID	Feature	Priority
+F-UI-01	Premium dark dashboard — Gold/Amber accents	Must Have
+F-UI-02	ZARA animated avatar (circular, emotion-responsive)	Must Have
+F-UI-03	Animated voice waveform	Must Have
+F-UI-04	Real-time status: INITIALIZING / STANDBY / LISTENING / WAKE_WORD_DETECTED / PROCESSING / SPEAKING / INTERRUPTED / RECONNECTING / MUTED / ERROR	Must Have
+F-UI-05	Emotion HUD — current emotion + intensity bar	Must Have
+F-UI-06	Confidence indicator	Must Have
+F-UI-07	Conversation history panel	Must Have
+F-UI-08	Voice settings panel	Must Have
+F-UI-09	Gemini Model selection panel	Must Have
+F-UI-10	API diagnostics panel	Must Have
+F-UI-11	Memory settings panel	Must Have
+F-UI-12	WhatsApp Center (UI/flow)	Must Have
+F-UI-13	Privacy & Security controls	Must Have
+F-UI-14	Usage Monitor (API requests + costs)	Should Have
+4.8 Windows Desktop Companion
+Feature ID	Feature	Priority
+F-WD-01	Electron-based installable Windows app	Must Have
+F-WD-02	Optional Windows startup auto-launch	Must Have
+F-WD-03	System tray icon + context menu	Must Have
+F-WD-04	Background operation — minimize hone par bhi active	Must Have
+F-WD-05	Local wake-word detection	Must Have
+F-WD-06	Global keyboard shortcut (activation + mute)	Must Have
+F-WD-07	Emergency mute	Must Have
+F-WD-08	Microphone + speaker device selection	Must Have
+F-WD-09	Connection monitoring + auto-reconnect	Must Have
+F-WD-10	Controlled restart + crash recovery	Must Have
+F-WD-11	Secure Windows credential storage	Must Have
+F-WD-12	App update mechanism	Should Have
+5. Non-Functional Requirements
+#	Requirement
+NF-01	ZARA Google AI Studio band hone ke baad bhi kaam kare
+NF-02	Response latency < 2 seconds for normal queries
+NF-03	Voice quality: natural, clear Pakistani Urdu pronunciation
+NF-04	API keys kabhi frontend ya browser console mein visible na hon
+NF-05	Microphone permission clearly request kiya jaye
+NF-06	Offline state clearly indicate ho — fake success messages nahi
+NF-07	Responsive browser interface (desktop-first, mobile-aware)
+NF-08	Application crash par controlled recovery
+NF-09	All status indicators reflect real application state
+NF-10	No hardcoded secrets in any source file
+6. ZARA States (System-Wide)
+code
+Code
+INITIALIZING → STANDBY → LISTENING → WAKE_WORD_DETECTED → PROCESSING → SPEAKING → LISTENING
+                                                                              ↓
+                                                                        INTERRUPTED → LISTENING
+STANDBY → MUTED → STANDBY
+Any State → RECONNECTING → previous state
+Any State → ERROR → recovery attempt
+7. Business Rules
+Rule	Description
+BR-01	ZARA hamesha "Boss" address kare jab tak user naam na badal de
+BR-02	WhatsApp message sirf user confirmation ke baad bheja jaye (is phase mein simulated)
+BR-03	Sensitive actions par double confirmation
+BR-04	Memory mein koi bhi info sirf user permission se save ho
+BR-05	ZARA kabhi fake success na dikhaye — real state reflect kare
+BR-06	Confidence level low/unknown ho to ZARA khud bol de
+BR-07	Wake word detection cloud se independent (local processing prefer)
+BR-08	API key exposure zero tolerance
+8. Scope & Exclusions
+In Scope
+Browser web app (React + TypeScript)
+Windows Desktop Companion (Electron)
+Gemini API integration (backend)
+Pakistani Urdu voice conversation
+Wake word detection
+EmotionEngine + personality
+Memory system
+WhatsApp UI/flow (no real API)
+Premium dashboard
+Out of Scope (This Phase)
+Real WhatsApp Business API
+Multi-user / multi-account support
+iOS/Android mobile app
+Offline AI (local LLM)
+Calendar / email integration
+Payment / subscription system
+Public deployment / user registration
+02 — Technical Requirements Document (TRD)
+ZARA — Personal Pakistani AI Voice Assistant
+1. Technology Stack
+Layer	Technology	Reason
+Frontend	React 18 + TypeScript + Vite	Fast, type-safe, AI Studio compatible
+Styling	Tailwind CSS + custom CSS variables	Rapid UI, design token system
+State Management	Zustand	Lightweight, perfect for real-time state
+Desktop App	Electron (wraps the React app)	Windows companion, system tray, auto-start
+Backend	Node.js + TypeScript (Express)	API proxy, secret management, websocket
+Real-time Comms	WebSocket (ws library)	Low-latency voice state updates
+Database	Supabase (PostgreSQL)	Conversation history, memory, settings
+AI Provider	Google Gemini API	Text, audio, multimodal
+Wake Word	Porcupine (Picovoice) browser/node SDK	Local, offline wake-word detection
+Speech Recognition	Web Speech API (browser) + Gemini audio	Fallback chain
+TTS	Gemini TTS / Google Cloud TTS	Pakistani Urdu voice
+Hosting (Browser)	Cloudflare Workers & Pages	From GitHub, no Vercel
+Source Control	GitHub	AI Studio → Export to GitHub
+2. Architecture Overview
+code
+Code
+┌─────────────────────────────────────────────────────────┐
+│                    USER                                  │
+│         (Browser Tab OR Windows Electron App)            │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│              REACT FRONTEND (TypeScript)                  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐  │
+│  │ WakeWord │ │ Voice    │ │ Emotion  │ │ Dashboard │  │
+│  │ Engine   │ │ Pipeline │ │ HUD      │ │ Panels    │  │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └─────┬─────┘  │
+│       └────────────┴────────────┴──────────────┘        │
+│                         │ WebSocket / REST               │
+└─────────────────────────┼───────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────┐
+│               NODE.JS BACKEND (TypeScript)               │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │ Gemini      │  │ EmotionEngine│  │ Memory Service │  │
+│  │ Model Mgr   │  │ Service      │  │                │  │
+│  └──────┬──────┘  └──────────────┘  └───────┬────────┘  │
+│         │                                    │           │
+│  ┌──────▼──────────────────────────┐  ┌──────▼────────┐  │
+│  │   WhatsApp Service (UI/Mock)    │  │  Supabase     │  │
+│  └─────────────────────────────────┘  │  Client       │  │
+│                                        └───────────────┘  │
+│  🔐 API Keys stored here ONLY (env vars)                  │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│              EXTERNAL SERVICES                           │
+│  ┌────────────────┐  ┌──────────┐  ┌────────────────┐   │
+│  │  Gemini API    │  │Supabase  │  │  Porcupine     │   │
+│  │  (Google)      │  │(Postgres)│  │  Wake Word     │   │
+│  └────────────────┘  └──────────┘  └────────────────┘   │
+└──────────────────────────────────────────────────────────┘
+3. Frontend Folder Structure
+code
+Code
+src/
+├── main.tsx                          # Vite entry
+├── App.tsx                           # Root + routing
+├── index.css                         # Global styles + CSS variables
+│
+├── components/
+│   ├── layout/
+│   │   ├── Sidebar.tsx               # Navigation sidebar
+│   │   ├── TopBar.tsx                # Status bar
+│   │   └── MainLayout.tsx            # App shell
+│   │
+│   ├── avatar/
+│   │   ├── ZaraAvatar.tsx            # Animated circular avatar
+│   │   └── VoiceWaveform.tsx         # Audio waveform animation
+│   │
+│   ├── emotion/
+│   │   ├── EmotionHUD.tsx            # Emotion display panel
+│   │   └── EmotionBadge.tsx          # Inline emotion indicator
+│   │
+│   ├── voice/
+│   │   ├── VoiceCenter.tsx           # Microphone controls
+│   │   ├── ListeningIndicator.tsx    # LISTENING / PROCESSING status
+│   │   └── AudioVisualizer.tsx       # Real-time audio bars
+│   │
+│   ├── conversation/
+│   │   ├── ConversationPanel.tsx     # Chat history
+│   │   ├── MessageBubble.tsx         # Individual message
+│   │   └── TypingIndicator.tsx       # ZARA is thinking...
+│   │
+│   ├── dashboard/
+│   │   ├── HomePanel.tsx             # Main greeting + status
+│   │   ├── ModelsPanel.tsx           # Gemini model selection
+│   │   ├── APIPanel.tsx              # API key config + diagnostics
+│   │   ├── MemoryPanel.tsx           # Memory review/edit/delete
+│   │   ├── WhatsAppCenter.tsx        # WhatsApp UI/flow
+│   │   ├── PrivacyPanel.tsx          # Privacy + security controls
+│   │   ├── UsageMonitor.tsx          # API usage + cost
+│   │   ├── DiagnosticsPanel.tsx      # Mic/network/model tests
+│   │   └── WindowsCompanion.tsx      # Desktop install guide + settings
+│   │
+│   └── common/
+│       ├── StatusBadge.tsx           # ZARA state badge
+│       ├── ConfidenceBar.tsx         # Confidence level indicator
+│       ├── ConfirmModal.tsx          # Confirmation dialog
+│       └── LoadingSpinner.tsx
+│
+├── engines/
+│   ├── WakeWordEngine.ts             # Porcupine integration
+│   ├── SpeechRecognitionEngine.ts    # Browser Speech API wrapper
+│   ├── VoicePlaybackEngine.ts        # TTS audio management
+│   └── ConversationOrchestrator.ts   # Turn-taking logic
+│
+├── store/
+│   ├── zaraStore.ts                  # Zustand main store
+│   ├── emotionStore.ts               # Emotion state
+│   ├── conversationStore.ts          # Messages + history
+│   ├── memoryStore.ts                # Short + long-term memory
+│   └── settingsStore.ts             # User settings + model config
+│
+├── services/
+│   ├── api/
+│   │   ├── geminiService.ts          # Backend API calls
+│   │   ├── whatsappService.ts        # WhatsApp mock service
+│   │   └── supabaseClient.ts         # Supabase browser client
+│   │
+│   └── websocket/
+│       └── wsClient.ts               # WebSocket connection to backend
+│
+├── hooks/
+│   ├── useWakeWord.ts
+│   ├── useVoiceConversation.ts
+│   ├── useEmotion.ts
+│   └── useZaraState.ts
+│
+├── types/
+│   ├── emotion.types.ts
+│   ├── conversation.types.ts
+│   ├── gemini.types.ts
+│   └── zara.types.ts
+│
+├── utils/
+│   ├── audioUtils.ts
+│   ├── textUtils.ts
+│   └── formatters.ts
+│
+└── config/
+    ├── models.config.ts              # Gemini model registry
+    ├── emotions.config.ts            # Emotion definitions
+    └── wakeWords.config.ts           # Wake word phrases
+4. Backend Folder Structure
+code
+Code
+backend/
+├── src/
+│   ├── index.ts                      # Express + WebSocket server entry
+│   ├── config/
+│   │   ├── env.ts                    # Environment variable validation
+│   │   └── models.registry.ts        # Gemini model registry
+│   │
+│   ├── services/
+│   │   ├── GeminiModelManager.ts     # Model selection + fallback
+│   │   ├── EmotionEngineService.ts   # Emotion state management
+│   │   ├── VoiceService.ts           # TTS generation
+│   │   ├── MemoryService.ts          # Memory CRUD
+│   │   └── WhatsAppService.ts        # Mock WhatsApp (UI flow)
+│   │
+│   ├── routes/
+│   │   ├── chat.routes.ts            # /api/chat
+│   │   ├── voice.routes.ts           # /api/voice/tts
+│   │   ├── models.routes.ts          # /api/models
+│   │   ├── memory.routes.ts          # /api/memory
+│   │   ├── whatsapp.routes.ts        # /api/whatsapp
+│   │   └── health.routes.ts          # /api/health
+│   │
+│   ├── middleware/
+│   │   ├── auth.middleware.ts        # API auth (owner-only)
+│   │   ├── rateLimit.middleware.ts   # Rate limiting
+│   │   ├── validation.middleware.ts  # Input validation
+│   │   └── errorHandler.middleware.ts
+│   │
+│   └── websocket/
+│       └── wsServer.ts               # Real-time state broadcast
+│
+├── .env.example
+├── package.json
+└── tsconfig.json
+5. Electron App Structure
+code
+Code
+electron/
+├── main.js                           # Electron main process
+├── preload.js                        # Context bridge (secure)
+├── tray.js                           # System tray management
+├── autostart.js                      # Windows startup integration
+├── wakeWord.node.js                  # Native wake word (Porcupine Node)
+├── credentialStore.js                # Windows credential vault
+└── package.json                      # Electron builder config
+6. ZARA States (Technical)
+code
+TypeScript
+type ZaraState =
+  | 'INITIALIZING'
+  | 'STANDBY'
+  | 'LISTENING'
+  | 'WAKE_WORD_DETECTED'
+  | 'PROCESSING'
+  | 'SPEAKING'
+  | 'INTERRUPTED'
+  | 'RECONNECTING'
+  | 'MUTED'
+  | 'ERROR';
+State transitions are managed in zaraStore.ts with guards to prevent invalid transitions.
+7. Gemini Integration
+Models Registry (configurable in models.config.ts)
+Model ID	Primary Use	Fallback
+gemini-2.5-flash	Chat + reasoning (primary)	gemini-1.5-flash
+gemini-2.5-flash	Voice understanding	gemini-1.5-flash
+gemini-2.0-flash-live-001	Live audio (if available)	gemini-2.5-flash
+API Call Pattern (Backend Only)
+code
+TypeScript
+// backend/services/GeminiModelManager.ts
+class GeminiModelManager {
+  async generateResponse(prompt: string, emotion: EmotionState): Promise<string>
+  async generateTTS(text: string, voiceConfig: VoiceConfig): Promise<Buffer>
+  async testConnection(modelId: string): Promise<boolean>
+  async getAvailableModels(): Promise<ModelInfo[]>
+  async trackUsage(modelId: string, tokens: number): Promise<void>
+}
+Security Rule
+GEMINI_API_KEY — backend .env only, never passed to frontend
+Frontend only calls /api/chat, /api/voice/tts — backend proxies to Gemini
+8. Wake Word Implementation
+Browser (Porcupine Web SDK)
+code
+TypeScript
+// src/engines/WakeWordEngine.ts
+import { Porcupine } from '@picovoice/porcupine-web';
+
+const WAKE_WORDS = [
+  'Hello ZARA',
+  'Hey ZARA',
+  'Assalam-o-Alaikum ZARA'
+];
+Electron (Porcupine Node SDK)
+Runs in background even when window is minimized
+Independent from cloud AI pipeline
+Low CPU footprint
+Fallback
+If Porcupine not available: WebSpeech continuous recognition filtered for wake phrases
+9. Supabase Integration
+Client Setup (Browser)
+code
+TypeScript
+// src/services/api/supabaseClient.ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+Server-side (Backend)
+code
+TypeScript
+// backend/config/env.ts
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!  // Never in frontend
+);
+10. Environment Variables
+Frontend (.env — Vite, VITE_ prefix required)
+Variable	Description	Example
+VITE_SUPABASE_URL	Supabase project URL	https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY	Supabase public/anon key	eyJhbGci...
+VITE_BACKEND_URL	Backend API URL	https://api.zara.example.com
+VITE_WS_URL	WebSocket URL	wss://api.zara.example.com/ws
+VITE_PICOVOICE_ACCESS_KEY	Porcupine wake word key	xxx
+Backend (.env — Server only, never exposed)
+Variable	Description
+GEMINI_API_KEY	Google Gemini API key
+GEMINI_API_KEY_2	Fallback Gemini API key (optional)
+SUPABASE_URL	Supabase project URL
+SUPABASE_SERVICE_ROLE_KEY	Supabase admin key (never frontend)
+OWNER_SECRET	Simple owner-only auth token
+PORT	Backend port (default 3001)
+NODE_ENV	development / production
+11. Security Requirements
+Requirement	Implementation
+API keys never in frontend	Backend proxy for all AI calls
+Owner-only API access	OWNER_SECRET header validation
+Input validation	Zod schemas on all API routes
+Rate limiting	express-rate-limit on all routes
+Supabase RLS	Row-level security on all tables
+Electron security	contextIsolation: true, nodeIntegration: false
+Secrets in Electron	Windows Credential Store via keytar
+HTTPS required	Cloudflare handles SSL termination
+12. Cloudflare Deployment Requirements
+Setting	Value
+Build command	npm run build
+Output directory	dist
+Node version	18+
+Framework preset	Vite
+SPA fallback	_redirects file: /* /index.html 200
+Lock file	Only package-lock.json (no bun.lock)
+.npmrc	legacy-peer-deps=true
+Environment variables	All VITE_* vars set in Cloudflare dashboard before deploy
+13. Testing Requirements
+Test Type	Coverage
+Unit	EmotionEngine, GeminiModelManager, Memory CRUD, WakeWordEngine
+Integration	Backend API routes, Supabase operations, Gemini API calls
+E2E	Voice conversation flow, wake word activation, WhatsApp UI flow
+Status	VERIFIED / FAILED / BLOCKED / NOT TESTED per feature
+14. AI Services (Cloudflare AI Gateway — Optional)
+If Gemini API calls are proxied through Cloudflare AI Gateway:
+VITE_AI_GATEWAY_URL = Cloudflare AI Gateway endpoint
+Provides: request logging, rate limiting, cost monitoring, caching
+Backend routes Gemini calls through gateway when AI_GATEWAY_ENABLED=true
+03 — App Flow (User Experience)
+ZARA — Personal Pakistani AI Voice Assistant
+1. First Launch Flow
+code
+Code
+User opens ZARA (Browser OR Electron)
+        │
+        ▼
+INITIALIZING state shown
+(ZARA avatar with loading animation)
+        │
+        ▼
+Check: API configuration exists?
+   NO ──────────────► API Setup Screen
+                          │ User enters GEMINI_API_KEY
+                          │ Connection test runs
+                          │ Success/Fail shown
+                          ▼
+   YES ─────────────► Check: Microphone permission?
+                          │
+                     NO ──► Permission Request Dialog
+                          │  User grants ──► continue
+                          │  User denies ──► Warning: Voice features limited
+                          ▼
+                     Check: Wake word engine ready?
+                          │
+                     YES ─► State: STANDBY
+                          │  ZARA says: "Assalam-o-Alaikum Boss! ZARA ready hai."
+                          ▼
+                     Dashboard loads fully
+2. Wake Word Flow
+code
+Code
+State: STANDBY (listening in background)
+        │
+User says: "Hello ZARA" / "Hey ZARA" / "Assalam-o-Alaikum ZARA"
+        │
+        ▼
+State: WAKE_WORD_DETECTED
+(Avatar activates, golden ring pulse animation)
+        │
+        ▼
+Special Case: "Assalam-o-Alaikum ZARA"?
+   YES ──► ZARA responds: "Wa Alaikum Assalam, Boss! Kya haal hain aapke?"
+        │   State: SPEAKING → LISTENING
+        │
+   NO  ──► ZARA says: "Jee Boss, sunnay mein hoon."
+        │   State: SPEAKING → LISTENING
+        ▼
+State: LISTENING
+(Microphone active, waveform animation visible)
+3. Normal Conversation Flow
+code
+Code
+State: LISTENING
+        │
+User speaks (any question/command)
+        │
+        ▼
+Voice Activity Detection:
+  - Silence detected (1.5s) → stop recording
+  - OR user pauses naturally
+        │
+        ▼
+State: PROCESSING
+(ZARA avatar "thinking" animation, "Soch rahi hoon..." indicator)
+        │
+        ▼
+Backend: Gemini API call with:
+  - User's transcribed text
+  - Current emotion context
+  - Conversation history (short-term memory)
+  - Long-term memory preferences
+        │
+        ▼
+EmotionEngine: Analyze response context
+  - Detect appropriate emotion
+  - Set confidence level
+  - Adjust response style
+        │
+        ▼
+State: SPEAKING
+(ZARA avatar animates, voice waveform plays)
+ZARA speaks response in Urdu/Roman Urdu
+        │
+        ▼
+Response complete
+        │
+        ▼
+State: LISTENING (auto-restart for continuous conversation)
+4. Barge-In (Interruption) Flow
+code
+Code
+State: SPEAKING
+        │
+User starts speaking mid-response
+        │
+        ▼
+State: INTERRUPTED
+Audio playback stops immediately
+        │
+        ▼
+State: LISTENING
+ZARA listens to new input
+        │
+        ▼
+(Normal conversation flow resumes)
+5. Sleep Mode Flow
+code
+Code
+State: LISTENING / STANDBY
+        │
+User says: "ZARA so jao" / "ZARA, sleep mode"
+        │
+        ▼
+ZARA: "Theek hai Boss, so rahi hoon. Jab zaroorat ho 'Hello ZARA' kahein."
+        │
+        ▼
+State: MUTED
+(System tray icon changes to dim indicator)
+(Wake word detection pauses)
+        │
+User says: "Hello ZARA" (wake word still monitored at system level in Electron)
+   OR
+User clicks "Wake ZARA" button
+        │
+        ▼
+State: STANDBY → LISTENING (resumes normal)
+6. Error / Reconnection Flow
+code
+Code
+State: PROCESSING or SPEAKING
+        │
+Network error / API failure
+        │
+        ▼
+State: RECONNECTING
+ZARA shows: "Connection issue. Dobara koshish kar rahi hoon..."
+        │
+        ▼
+Retry logic (3 attempts, exponential backoff):
+  Success ──► Resume previous state
+  Fail    ──► State: ERROR
+               ZARA shows: "Boss, abhi connection nahi mil raha.
+                            Internet check karein."
+               (No fake success messages)
+7. WhatsApp Flow (UI/Mock — Phase 1)
+code
+Code
+State: LISTENING
+        │
+User says: "ZARA, [Name] ko WhatsApp karo ke [message]"
+Example: "ZARA, Hamza ko message bhejo ke main 5 minute mein aa raha hoon"
+        │
+        ▼
+ZARA: Extracts → Contact: "Hamza", Message: "Main 5 minute mein aa raha hoon"
+        │
+        ▼
+ZARA reads back:
+"Boss, Hamza ko yeh message bhejna hai:
+'Main 5 minute mein aa raha hoon'
+Kya bhej doon?"
+        │
+        ▼
+Confirmation Dialog (voice + UI):
+  User: "Haan" / "Bhej do" / YES button
+      │
+      ▼
+  [Phase 1: Mock simulation]
+  Status: "Bhejna ki koshish kar rahi hoon..." (2s delay)
+  Status: "✓ Message [simulated] — WhatsApp API baad mein connect hogi"
+      │
+  User: "Nahi" / "Ruko" / NO button
+      │
+      ▼
+  ZARA: "Theek hai Boss, message cancel kar diya."
+8. Memory Save Flow
+code
+Code
+Conversation ongoing...
+        │
+ZARA detects important preference / info
+        │
+        ▼
+ZARA asks: "Boss, kya main yeh yaad rakhun?"
+[Yes] [No] buttons + voice response
+        │
+   YES ──► Info saved to long-term memory
+           ZARA: "Yaad kar liya Boss."
+        │
+   NO  ──► Not saved, conversation continues
+9. Dashboard Navigation Flow
+code
+Code
+Dashboard Sidebar Navigation:
+
+🏠 Home
+   └── ZARA status, greeting, quick voice start
+
+🎤 Voice Center
+   └── Mic controls, device selection, TTS settings, volume/speed
+
+🎭 Emotion HUD
+   └── Current emotion display, intensity slider, emotion history
+
+🤖 AI Models
+   └── Model list, primary/fallback selection, connection test
+
+🔑 API Settings
+   └── Gemini key status, test connection, usage stats
+
+💬 WhatsApp Center
+   └── Contacts list, message history, integration status
+
+🧠 Memory Center
+   └── Short-term view, long-term entries, edit/delete, export
+
+📜 Conversation History
+   └── All past conversations, search, export
+
+🖥️ Windows Companion
+   └── Download link, auto-start toggle, tray settings
+
+🔒 Privacy & Security
+   └── Mic permissions, mute, data controls, API security
+
+🔧 Diagnostics
+   └── Mic test, network test, model test, TTS test
+
+📊 Usage Monitor
+   └── API requests count, token usage, estimated cost
+10. Windows Electron App Flow
+code
+Code
+Windows boots
+        │
+        ▼
+ZARA auto-starts (if enabled)
+System tray icon appears: 🟡 (STANDBY)
+        │
+        ▼
+Local wake word engine starts (background)
+No window visible — running in tray
+        │
+User says: "Hello ZARA"
+(Even without ZARA window open)
+        │
+        ▼
+ZARA window appears (or notification popup)
+State: WAKE_WORD_DETECTED
+ZARA responds via speakers
+        │
+        ▼
+Conversation continues (window stays open)
+        │
+User minimizes / closes window
+        ▼
+ZARA continues in system tray
+Wake word still monitored
+        │
+Right-click tray icon:
+  ├── Open ZARA
+  ├── Mute
+  ├── Sleep Mode
+  ├── Settings
+  └── Exit ZARA
+11. Emotion Display Flow
+code
+Code
+Each ZARA response triggers:
+        │
+        ▼
+EmotionEngine.analyze(responseContext)
+  → Returns: emotion, intensity, confidence
+        │
+        ▼
+EmotionHUD updates:
+  - Emotion icon + label (e.g., 😊 Khushi)
+  - Intensity bar (filled 0-100%)
+  - Confidence indicator (High/Medium/Low)
+  - Avatar expression changes accordingly
+        │
+        ▼
+Voice delivery adjusts:
+  - Happy: energetic pace, warm tone
+  - Sad: slower, softer
+  - Confident: clear, steady
+  - Humorous: slight playfulness
+  - Calm: measured, relaxed
+12. States Summary (All Pages)
+State	Avatar	Status Badge	Voice	Action
+INITIALIZING	Spinning loader	Gray	None	Wait
+STANDBY	Idle glow	Yellow	None	Say wake word
+LISTENING	Pulse animation	Green	Mic active	Speak
+WAKE_WORD_DETECTED	Gold ring burst	Gold	Chime	Auto
+PROCESSING	Thinking dots	Blue	None	Wait
+SPEAKING	Wave animation	Purple	TTS playing	Can interrupt
+INTERRUPTED	Quick fade	Orange	Stops	Auto-listen
+RECONNECTING	Spinning ring	Yellow	None	Wait
+MUTED	Dim/grayed	Gray	None	Wake word to resume
+ERROR	Red pulse	Red	Error tone	Check connection
+13. Page-Level Routes
+Route	Page	Description
+/	Home	Main dashboard + ZARA status
+/voice	Voice Center	Mic + TTS controls
+/emotion	Emotion HUD	Emotion display + history
+/models	AI Models	Gemini model management
+/api-settings	API Settings	Keys + diagnostics
+/whatsapp	WhatsApp Center	Message UI/flow
+/memory	Memory Center	Memory management
+/history	Conversation History	Past conversations
+/windows	Windows Companion	Desktop app settings
+/privacy	Privacy & Security	Permissions + controls
+/diagnostics	Diagnostics	System tests
+/usage	Usage Monitor	API usage + costs
+14. Empty / Loading / Error States
+Scenario	What ZARA Shows
+No conversation history	"Koi pichli baat nahi mili. 'Hello ZARA' bol kar shuru karein."
+API key missing	"API configuration nahi hai. Settings mein jaakar key set karein."
+Microphone denied	"Microphone access nahi hai. Browser settings mein allow karein."
+Model unavailable	"Yeh model abhi available nahi. Fallback model use ho raha hai."
+Network offline	"Internet nahi mil raha Boss. Connection check karein."
+Memory empty	"Abhi tak kuch yaad nahi kiya. Jo important ho, woh save karein."
+Loading any panel	Skeleton shimmer animation
+04 — UI/UX Design Brief
+ZARA — Personal Pakistani AI Voice Assistant
+1. Design Identity
+Attribute	Value
+Personality	Premium, intelligent, warm, futuristic
+Feeling	Luxury AI companion — not a generic chatbot
+Inspiration	High-end AI assistants, JARVIS, premium dashboard UIs
+Vibe	Dark tech with warm gold — professional meets personal
+2. Color Palette
+Primary Colors (CSS Variables)
+code
+CSS
+:root {
+  /* Backgrounds */
+  --bg-primary:     #0A0A0F;   /* Near-black main background */
+  --bg-secondary:   #111118;   /* Card / panel background */
+  --bg-elevated:    #1A1A24;   /* Elevated surface (modals, dropdowns) */
+  --bg-glass:       rgba(255, 255, 255, 0.04); /* Glass morphism panels */
+
+  /* Gold / Amber Accents (Primary Brand) */
+  --gold-primary:   #F59E0B;   /* Main gold — buttons, active states */
+  --gold-light:     #FCD34D;   /* Light gold — hover, highlights */
+  --gold-dark:      #B45309;   /* Dark gold — pressed states */
+  --gold-glow:      rgba(245, 158, 11, 0.25); /* Glow effect */
+  --gold-subtle:    rgba(245, 158, 11, 0.08); /* Subtle tints */
+
+  /* Status Colors */
+  --status-listening:  #10B981; /* Green */
+  --status-speaking:   #8B5CF6; /* Purple */
+  --status-processing: #3B82F6; /* Blue */
+  --status-standby:    #F59E0B; /* Gold */
+  --status-error:      #EF4444; /* Red */
+  --status-muted:      #6B7280; /* Gray */
+  --status-reconnect:  #F59E0B; /* Yellow */
+
+  /* Emotion Colors */
+  --emotion-happy:     #F59E0B;
+  --emotion-sad:       #60A5FA;
+  --emotion-angry:     #EF4444;
+  --emotion-confident: #8B5CF6;
+  --emotion-caring:    #EC4899;
+  --emotion-humorous:  #F97316;
+  --emotion-curious:   #06B6D4;
+  --emotion-calm:      #10B981;
+  --emotion-surprised: #A855F7;
+  --emotion-focused:   #3B82F6;
+
+  /* Text */
+  --text-primary:   #F9FAFB;   /* Main text */
+  --text-secondary: #9CA3AF;   /* Muted text */
+  --text-muted:     #4B5563;   /* Very muted */
+  --text-gold:      #F59E0B;   /* Brand text */
+
+  /* Borders */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-gold:    rgba(245, 158, 11, 0.3);
+  --border-active:  rgba(245, 158, 11, 0.6);
+}
+3. Typography
+Use	Font	Weight	Size
+ZARA logo / brand	Inter / Space Grotesk	700 Bold	24px
+Dashboard headings	Inter	600 SemiBold	20px
+Panel titles	Inter	600 SemiBold	16px
+Body text	Inter	400 Regular	14px
+Small labels	Inter	400 Regular	12px
+Status badges	Inter	600 SemiBold	11px
+Urdu text (conversation)	Noto Nastaliq Urdu / system Urdu	400	16px
+Code / diagnostics	JetBrains Mono	400	13px
+Google Fonts import:
+code
+CSS
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@700&family=JetBrains+Mono:wght@400&display=swap');
+4. Layout
+Overall Structure
+code
+Code
+┌─────────────────────────────────────────────────────────┐
+│  TOP BAR: [🔮 ZARA] [Status Badge] [─────] [Mute][⚙️]  │  48px
+├──────────┬──────────────────────────────────────────────┤
+│          │                                              │
+│ SIDEBAR  │           MAIN CONTENT AREA                 │
+│  72px    │                                              │
+│  icons   │   [ZARA Avatar + Waveform]  [Emotion HUD]   │
+│  only    │                                              │
+│  (or     │   [Conversation Panel]                       │
+│  200px   │                                              │
+│  expanded│   [Active Dashboard Panel]                   │
+│  on      │                                              │
+│  hover)  │                                              │
+│          │                                              │
+└──────────┴──────────────────────────────────────────────┘
+Sidebar Behavior
+Collapsed by default: 72px — icon only
+Hover/click to expand: 220px — icon + label
+Active item: gold left border + gold text
+Bottom: Settings icon always visible
+Main Content
+Max width: 1400px, centered
+Padding: 24px
+Grid: 12 columns, 16px gap
+5. ZARA Avatar
+Specifications
+Shape: Perfect circle, 160px diameter (hero view), 80px (sidebar mini)
+Base: Deep dark radial gradient (#0A0A0F → #1A1A24)
+Ring: Animated gold border ring (gradient: #F59E0B → #FCD34D → #F59E0B)
+Inner glow: Subtle gold radial glow when active
+Face/Icon: Abstract AI face OR glowing "Z" monogram in gold
+State Animations
+State	Animation
+STANDBY	Slow breathing pulse (scale 1.0 → 1.02, 3s loop)
+LISTENING	Green ring pulse, faster breath
+WAKE_WORD_DETECTED	Gold ring burst → expand → settle
+PROCESSING	Rotating dashed ring + inner dots bounce
+SPEAKING	Voice waveform projected outward from avatar
+INTERRUPTED	Quick flash, stops speaking animation
+MUTED	Desaturated, dim, red small badge
+ERROR	Red tint pulse
+Emotion Expression
+Avatar inner glow color changes to match current emotion color
+Subtle icon/expression overlay per emotion (optional: emoji layer)
+6. Voice Waveform
+Position: Below avatar, or as projected rings around avatar
+Style: 5–9 vertical bars, animated via requestAnimationFrame
+Active color: Gold (#F59E0B) with glow
+Idle: Flat line, muted gray
+Speaking: Animated bars synced to TTS amplitude
+Listening: Animated bars synced to microphone amplitude
+7. Status Badge
+code
+Code
+┌─────────────────────┐
+│  ● LISTENING        │  ← Green dot + text
+└─────────────────────┘
+Position: Top bar center-right
+Dot color matches status color
+Text: all caps, small font, 11px SemiBold
+Background: var(--bg-elevated) with subtle border
+Smooth transition between states (fade 200ms)
+8. Emotion HUD Panel
+code
+Code
+┌──────────────────────────────────┐
+│  🎭  EMOTION STATE               │
+│                                  │
+│  😊  KHUSHI                      │
+│  ████████████░░░░  75%           │  ← intensity bar (gold fill)
+│                                  │
+│  🎯 Confidence: HIGH             │
+│  💬 Style: Energetic             │
+└──────────────────────────────────┘
+Card: var(--bg-secondary) background, gold border
+Emotion icon: large (32px emoji or custom SVG)
+Intensity bar: gold fill with glow
+Smooth animation on emotion change (0.4s transition)
+9. Conversation Panel
+Message Bubbles
+User Message:
+code
+Code
+┌──────────────────────────────┐
+                    │  Hamza ko message bhej do    │
+                    └──────────────────────────────┘
+                                           You • 2:34 PM
+Right-aligned
+Background: var(--gold-subtle)
+Border: var(--border-gold)
+Text: var(--text-primary)
+ZARA Message:
+code
+Code
+┌────────────────────────────────────────────────┐
+│  Theek hai Boss, Hamza ka message ready hai.   │
+└────────────────────────────────────────────────┘
+ZARA • 2:34 PM          😊 Khushi
+Left-aligned
+Background: var(--bg-elevated)
+Border: var(--border-subtle) → gold on hover
+Emotion label small (below message)
+Urdu text: Noto Nastaliq font, right-to-left
+Typing Indicator:
+code
+Code
+┌──────────────────┐
+│  ● ● ●           │  ← gold bouncing dots
+└──────────────────┘
+ZARA is thinking...
+10. Dashboard Panels (Cards)
+Card Style
+code
+CSS
+.panel-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 20px 24px;
+  transition: border-color 0.2s;
+}
+.panel-card:hover {
+  border-color: var(--border-gold);
+  box-shadow: 0 0 0 1px var(--gold-glow);
+}
+Panel Header
+code
+Code
+├─────────────────────────────────────────────────────────┤
+│  [Icon]  Panel Title                    [Action Button] │
+├─────────────────────────────────────────────────────────┤
+│                   content                               │
+11. Buttons
+Primary (Gold)
+code
+CSS
+.btn-primary {
+  background: var(--gold-primary);
+  color: #0A0A0F;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.btn-primary:hover {
+  background: var(--gold-light);
+  box-shadow: 0 0 20px var(--gold-glow);
+}
+Secondary (Ghost)
+code
+CSS
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 20px;
+}
+.btn-secondary:hover {
+  border-color: var(--border-gold);
+  color: var(--gold-primary);
+}
+Danger (Red)
+Same shape, red background / border
+Icon Button
+40x40px circle
+Gold icon on hover
+Used for: Mute, Settings, Close
+12. Forms & Inputs
+code
+CSS
+.input-field {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.input-field:focus {
+  outline: none;
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+13. Modals / Confirmation Dialogs
+code
+Code
+┌─────────────────────────────────────────────┐
+│  ⚠️  Confirm Action                          │
+│                                             │
+│  Hamza ko message bhejne wala hoon:         │
+│  "Main 5 minute mein aa raha hoon"          │
+│                                             │
+│  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   Cancel    │  │   ✓ Haan, Bhej Do   │  │
+│  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────┘
+Overlay: rgba(0, 0, 0, 0.7) backdrop
+Modal: var(--bg-elevated), gold border
+Confirm button: Primary gold
+Cancel: Ghost
+14. Animations
+Animation	Duration	Easing
+State transitions	200ms	ease-in-out
+Panel open/close	300ms	cubic-bezier(0.4, 0, 0.2, 1)
+Emotion change	400ms	ease
+Avatar breathing	3000ms	ease-in-out, infinite
+Gold ring pulse	1500ms	ease-in-out, infinite
+Waveform bars	16ms (RAF)	—
+Button hover	150ms	ease
+Sidebar expand	250ms	ease
+Skeleton shimmer	1500ms	linear, infinite
+Rule: No animation should distract from ZARA's core voice interaction. Animations enhance, not replace, functionality.
+15. Responsive Behavior
+Breakpoint	Layout
+Desktop ≥ 1200px	Full layout: sidebar + main (default)
+Tablet 768–1199px	Sidebar collapses to icon-only by default
+Mobile < 768px	Bottom nav bar, panels full-screen, avatar smaller
+Desktop-first design — ZARA is primarily a desktop app.
+16. Accessibility
+All interactive elements keyboard-navigable
+Focus rings: gold outline (2px solid var(--gold-primary))
+ARIA labels on all icon buttons
+Status changes announced via aria-live regions
+Sufficient contrast ratios (WCAG AA minimum)
+Mic permission state clearly communicated
+17. Icons & Imagery
+Icon set: Lucide React (consistent, clean)
+Emoji: Native OS emoji for emotion display
+Avatar: Custom CSS/SVG (no external image dependency)
+No stock photos — pure UI, no decorative images
+ZARA logo: "Z A R A" lettering in Space Grotesk Bold + gold color
+18. Windows Electron Specific
+Native window: no default frame, custom title bar (matches dark theme)
+System tray icon: 16x16 gold "Z" on dark background
+Tray icon states: full gold (active), dim (muted), red dot (error)
+Windows notifications: minimal, non-intrusive
+Native-feeling scrollbars: thin, gold on hover
+05 — Backend Schema
+ZARA — Personal Pakistani AI Voice Assistant
+Note: Ye planning document hai. Is se database create nahi hota.
+ChatGPT + Supabase plugin baad mein is schema ke mutabiq actual database banayega.
+1. Database: Supabase (PostgreSQL)
+Single user (owner-only) system. Koi multi-user auth nahi — sirf ek personal user hoga.
+2. Tables
+2.1 user_profile
+Owner ki preferences aur identity.
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Unique record ID
+owner_name	text	NOT NULL, DEFAULT 'Boss'	ZARA ka address name
+preferred_language	text	NOT NULL, DEFAULT 'urdu'	'urdu' | 'roman_urdu' | 'english'
+preferred_voice_id	text	NULLABLE	Selected TTS voice identifier
+voice_speed	numeric(3,2)	NOT NULL, DEFAULT 1.0	0.5 – 2.0
+voice_volume	numeric(3,2)	NOT NULL, DEFAULT 1.0	0.0 – 1.0
+wake_words_enabled	boolean	NOT NULL, DEFAULT true	Wake word detection on/off
+continuous_conversation	boolean	NOT NULL, DEFAULT true	Auto-restart listening
+sleep_mode_active	boolean	NOT NULL, DEFAULT false	Current sleep state
+created_at	timestamptz	NOT NULL, DEFAULT now()	Creation timestamp
+updated_at	timestamptz	NOT NULL, DEFAULT now()	Last update
+Indexes: None additional (single row expected).
+2.2 conversations
+Har conversation session ka record.
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Session ID
+started_at	timestamptz	NOT NULL, DEFAULT now()	Session start time
+ended_at	timestamptz	NULLABLE	Session end time
+message_count	integer	NOT NULL, DEFAULT 0	Total messages in session
+dominant_emotion	text	NULLABLE	Most frequent emotion in session
+summary	text	NULLABLE	Auto-generated session summary
+created_at	timestamptz	NOT NULL, DEFAULT now()	Record creation
+Indexes:
+code
+SQL
+CREATE INDEX idx_conversations_started_at ON conversations(started_at DESC);
+2.3 messages
+Har individual message (user ya ZARA).
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Message ID
+conversation_id	uuid	NOT NULL, FK → conversations(id) ON DELETE CASCADE	Parent session
+role	text	NOT NULL, CHECK (role IN ('user', 'zara'))	Who said it
+content	text	NOT NULL	Message text
+language	text	NOT NULL, DEFAULT 'roman_urdu'	'roman_urdu' | 'urdu' | 'english'
+emotion	text	NULLABLE	ZARA's emotion at time of message
+emotion_intensity	integer	NULLABLE, CHECK (0–100)	0–100 intensity
+confidence_level	text	NULLABLE, CHECK IN ('high','medium','low','unknown')	ZARA confidence
+gemini_model_used	text	NULLABLE	Which model generated this response
+token_count	integer	NULLABLE	Tokens used for this message
+audio_url	text	NULLABLE	Supabase Storage URL for TTS audio (if cached)
+created_at	timestamptz	NOT NULL, DEFAULT now()	Message timestamp
+Indexes:
+code
+SQL
+CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX idx_messages_created_at ON messages(created_at DESC);
+CREATE INDEX idx_messages_role ON messages(role);
+2.4 memory_entries
+ZARA ki long-term memory — user-approved information.
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Memory ID
+category	text	NOT NULL	'preference' | 'fact' | 'instruction' | 'contact' | 'task'
+key	text	NOT NULL	Short label (e.g., 'preferred_name')
+value	text	NOT NULL	The memory content
+importance	text	NOT NULL, DEFAULT 'medium'	'high' | 'medium' | 'low'
+source_conversation_id	uuid	NULLABLE, FK → conversations(id)	Where it was learned
+user_approved	boolean	NOT NULL, DEFAULT false	Only save after user confirms
+is_active	boolean	NOT NULL, DEFAULT true	Soft delete
+expires_at	timestamptz	NULLABLE	Optional expiry
+created_at	timestamptz	NOT NULL, DEFAULT now()	When saved
+updated_at	timestamptz	NOT NULL, DEFAULT now()	Last modified
+Indexes:
+code
+SQL
+CREATE INDEX idx_memory_entries_category ON memory_entries(category);
+CREATE INDEX idx_memory_entries_is_active ON memory_entries(is_active);
+CREATE UNIQUE INDEX idx_memory_entries_key ON memory_entries(key) WHERE is_active = true;
+2.5 gemini_model_config
+Available Gemini models aur their configuration.
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Config ID
+model_id	text	NOT NULL, UNIQUE	Gemini model identifier
+display_name	text	NOT NULL	Human-readable name
+capabilities	text[]	NOT NULL	['text', 'audio', 'image', 'reasoning']
+is_primary	boolean	NOT NULL, DEFAULT false	Primary model for this task
+is_fallback	boolean	NOT NULL, DEFAULT false	Fallback if primary fails
+task_type	text	NOT NULL	'chat' | 'voice' | 'multimodal'
+is_enabled	boolean	NOT NULL, DEFAULT true	Enable/disable
+last_tested_at	timestamptz	NULLABLE	Last connection test
+last_test_status	text	NULLABLE	'success' | 'failed' | 'timeout'
+created_at	timestamptz	NOT NULL, DEFAULT now()	Created
+Seed Data (insert on setup):
+code
+SQL
+INSERT INTO gemini_model_config (model_id, display_name, capabilities, is_primary, is_fallback, task_type) VALUES
+('gemini-2.5-flash', 'Gemini 2.5 Flash', ARRAY['text', 'reasoning'], true, false, 'chat'),
+('gemini-1.5-flash', 'Gemini 1.5 Flash', ARRAY['text'], false, true, 'chat'),
+('gemini-2.0-flash-live-001', 'Gemini 2.0 Flash Live', ARRAY['audio', 'text'], true, false, 'voice'),
+('gemini-2.5-flash', 'Gemini 2.5 Flash (Audio)', ARRAY['audio', 'text'], false, true, 'voice');
+2.6 api_usage_logs
+Gemini API usage tracking.
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Log ID
+model_id	text	NOT NULL	Which model was used
+task_type	text	NOT NULL	'chat' | 'tts' | 'transcription'
+input_tokens	integer	NOT NULL, DEFAULT 0	Input token count
+output_tokens	integer	NOT NULL, DEFAULT 0	Output token count
+total_tokens	integer	NOT NULL, DEFAULT 0	Total tokens
+estimated_cost_usd	numeric(10,6)	NULLABLE	Estimated cost
+latency_ms	integer	NULLABLE	Response time in ms
+status	text	NOT NULL	'success' | 'error' | 'quota_exceeded'
+error_message	text	NULLABLE	Error details if failed
+conversation_id	uuid	NULLABLE, FK → conversations(id)	Related session
+created_at	timestamptz	NOT NULL, DEFAULT now()	Log timestamp
+Indexes:
+code
+SQL
+CREATE INDEX idx_api_usage_logs_created_at ON api_usage_logs(created_at DESC);
+CREATE INDEX idx_api_usage_logs_model_id ON api_usage_logs(model_id);
+CREATE INDEX idx_api_usage_logs_status ON api_usage_logs(status);
+2.7 whatsapp_messages
+WhatsApp message log (UI/mock in Phase 1).
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Record ID
+contact_name	text	NOT NULL	Recipient name (from user voice)
+contact_identifier	text	NULLABLE	Phone number (Phase 2 when real API)
+message_text	text	NOT NULL	The message content
+status	text	NOT NULL, DEFAULT 'pending'	'pending' | 'confirmed' | 'sent' | 'failed' | 'cancelled' | 'simulated'
+user_confirmed	boolean	NOT NULL, DEFAULT false	Did user approve?
+is_sensitive	boolean	NOT NULL, DEFAULT false	Required double confirm
+sent_at	timestamptz	NULLABLE	When actually sent
+error_message	text	NULLABLE	Error if failed
+conversation_id	uuid	NULLABLE, FK → conversations(id)	Related conversation
+created_at	timestamptz	NOT NULL, DEFAULT now()	Record created
+Indexes:
+code
+SQL
+CREATE INDEX idx_whatsapp_messages_status ON whatsapp_messages(status);
+CREATE INDEX idx_whatsapp_messages_created_at ON whatsapp_messages(created_at DESC);
+2.8 zara_settings
+Application-wide settings.
+Column	Type	Constraints	Description
+id	uuid	PRIMARY KEY, DEFAULT gen_random_uuid()	Setting ID
+setting_key	text	NOT NULL, UNIQUE	Setting identifier
+setting_value	text	NOT NULL	Value (stored as text/JSON string)
+setting_type	text	NOT NULL	'boolean' | 'string' | 'number' | 'json'
+description	text	NULLABLE	Human-readable description
+is_sensitive	boolean	NOT NULL, DEFAULT false	Mask in UI
+updated_at	timestamptz	NOT NULL, DEFAULT now()	Last modified
+Key settings (seed data):
+code
+SQL
+INSERT INTO zara_settings (setting_key, setting_value, setting_type, description) VALUES
+('wake_word_sensitivity', '0.7', 'number', 'Porcupine wake word sensitivity (0-1)'),
+('auto_start_listening', 'true', 'boolean', 'Auto-restart listening after ZARA speaks'),
+('barge_in_enabled', 'true', 'boolean', 'Allow user to interrupt ZARA'),
+('silence_timeout_ms', '1500', 'number', 'Silence duration before stopping recording'),
+('max_conversation_history', '20', 'number', 'Messages to include in context'),
+('memory_retention_days', '90', 'number', 'Days to keep memory entries'),
+('tts_provider', 'gemini', 'string', 'TTS provider: gemini | google_cloud'),
+('emotion_transitions_enabled', 'true', 'boolean', 'Enable emotion engine');
+3. Relationships
+code
+Code
+user_profile (1)
+    │
+    └── (no direct FK — single user system)
+
+conversations (1) ──< messages (many)
+    │
+    └──< api_usage_logs (many)
+    │
+    └──< whatsapp_messages (many)
+
+memory_entries ──> conversations (optional source)
+gemini_model_config (standalone config table)
+zara_settings (standalone key-value store)
+4. Row Level Security (RLS)
+Since this is a single-user personal app, RLS is simple:
+code
+SQL
+-- Enable RLS on all tables
+ALTER TABLE user_profile ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE memory_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gemini_model_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_usage_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE zara_settings ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Only service role (backend) can access everything
+-- Anon key gets no direct access (backend proxies all DB calls)
+-- Note: ChatGPT will implement exact RLS policies per Supabase best practices
+Security approach: Frontend never calls Supabase directly for sensitive data. Backend (Node.js) uses SUPABASE_SERVICE_ROLE_KEY for all data operations. Frontend's VITE_SUPABASE_ANON_KEY is for auth only (if needed in future).
+5. Storage Buckets
+Bucket Name	Purpose	Access
+tts-audio-cache	Cached TTS audio files	Private (backend only)
+conversation-exports	Exported conversation JSON/text	Private
+Note: Audio caching is optional optimization. ChatGPT will set bucket policies.
+6. Functions & Triggers
+Trigger: update_updated_at
+Auto-update updated_at on any row change:
+code
+SQL
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply to tables with updated_at
+CREATE TRIGGER update_user_profile_updated_at
+  BEFORE UPDATE ON user_profile
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_memory_entries_updated_at
+  BEFORE UPDATE ON memory_entries
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+Function: get_recent_context
+Return last N messages for Gemini context:
+code
+SQL
+CREATE OR REPLACE FUNCTION get_recent_context(
+  p_conversation_id UUID,
+  p_limit INTEGER DEFAULT 20
+)
+RETURNS TABLE(role TEXT, content TEXT, emotion TEXT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT m.role, m.content, m.emotion
+  FROM messages m
+  WHERE m.conversation_id = p_conversation_id
+  ORDER BY m.created_at DESC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+Function: get_active_memories
+Return all active memory entries for ZARA context:
+code
+SQL
+CREATE OR REPLACE FUNCTION get_active_memories()
+RETURNS TABLE(category TEXT, key TEXT, value TEXT, importance TEXT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT me.category, me.key, me.value, me.importance
+  FROM memory_entries me
+  WHERE me.is_active = true
+    AND me.user_approved = true
+    AND (me.expires_at IS NULL OR me.expires_at > now())
+  ORDER BY
+    CASE me.importance WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+    me.updated_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+7. Required Backend API Endpoints
+(These define what the backend Node.js server must implement — not Supabase directly)
+Method	Route	Description
+POST	/api/chat	Send message to Gemini, get response
+POST	/api/voice/tts	Generate TTS audio
+POST	/api/voice/transcribe	Transcribe audio to text
+GET	/api/models	List available Gemini models
+POST	/api/models/test	Test specific model connection
+GET	/api/conversations	List conversations
+GET	/api/conversations/:id/messages	Get messages for session
+POST	/api/conversations	Start new conversation
+GET	/api/memory	Get all active memories
+POST	/api/memory	Save new memory entry
+PUT	/api/memory/:id	Update memory entry
+DELETE	/api/memory/:id	Soft-delete memory entry
+GET	/api/whatsapp/messages	Get WhatsApp message history
+POST	/api/whatsapp/draft	Create message draft
+POST	/api/whatsapp/send	Send (simulated in Phase 1)
+GET	/api/settings	Get all settings
+PUT	/api/settings/:key	Update a setting
+GET	/api/usage	Get API usage stats
+GET	/api/health	Health check
+WebSocket	/ws	Real-time ZARA state updates
+06 — Implementation Plan
+ZARA — Personal Pakistani AI Voice Assistant
+Purpose
+Ye document Google AI Studio ke liye internal execution guide hai.
+AI Studio Follow the plan message receive karne ke baad is order mein kaam kare.
+User ke liye phase-wise prompts nahi hain. Ye AI Studio ka build sequence hai.
+Tech Stack Reminder
+Frontend: React 18 + TypeScript + Vite + Tailwind CSS + Zustand
+Desktop: Electron (wraps frontend)
+Backend: Node.js + TypeScript + Express + WebSocket
+DB: Supabase (PostgreSQL) — code Supabase-ready likhna hai, DB baad mein ChatGPT banayega
+AI: Gemini API (backend proxy only)
+Wake Word: Porcupine (Picovoice)
+Deploy: Cloudflare Workers & Pages
+Build Order
+Phase 0: Project Setup
+Vite + React + TypeScript project initialize karein
+Folder structure banayein (exact structure as in TRD Section 3 & 4)
+Tailwind CSS configure karein
+CSS variables set karein (all design tokens from UI/UX Brief Section 2)
+Google Fonts import: Inter, Space Grotesk, JetBrains Mono
+Zustand install + store files banayein (empty shells):
+zaraStore.ts, emotionStore.ts, conversationStore.ts, memoryStore.ts, settingsStore.ts
+Types define karein:
+ZaraState type (all 10 states)
+Emotion type + EmotionState interface
+Message interface
+MemoryEntry interface
+GeminiModel interface
+Supabase client setup (supabaseClient.ts) with VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+.env.example file banayein (all env vars from TRD Section 10)
+.npmrc root mein: legacy-peer-deps=true
+_redirects file in public/: /* /index.html 200
+vite.config.ts: verify build output is dist
+Phase 1: App Shell + Navigation
+MainLayout.tsx banayein:
+Sidebar (collapsed 72px, expanded 220px on hover)
+TopBar (ZARA branding, status badge, mute button)
+Main content area
+Sidebar.tsx: 12 nav icons with routes (per App Flow Section 9)
+TopBar.tsx: ZARA logo, StatusBadge component, global mute icon
+StatusBadge.tsx: all 10 ZARA states with correct colors (from UI/UX Brief Section 7)
+React Router setup: all 12 routes (per App Flow Section 13)
+Empty placeholder pages for all routes
+Sidebar active state: gold left border on current route
+Dark background render correctly (var(--bg-primary))
+Phase 2: ZARA Avatar + Waveform
+ZaraAvatar.tsx:
+160px circle with dark radial gradient base
+Animated gold ring border (CSS animation)
+Inner glow that changes color per emotion state
+State-specific animations (per UI/UX Brief Section 5):
+STANDBY: slow breathing pulse
+LISTENING: green ring pulse
+WAKE_WORD_DETECTED: gold burst animation
+PROCESSING: rotating dashed ring
+SPEAKING: outer wave rings
+MUTED: desaturated + red badge
+ERROR: red tint pulse
+VoiceWaveform.tsx:
+7 vertical bars using requestAnimationFrame
+Gold animated bars when active
+Flat gray when idle
+Props: isActive: boolean, amplitude: number[]
+Phase 3: Emotion Engine (Frontend)
+emotions.config.ts: Define all 9 emotions with:
+ID, display name (Urdu), color variable, icon/emoji
+emotionStore.ts (complete):
+currentEmotion, intensity (0–100), confidenceLevel, empathyLevel
+setEmotion(), updateIntensity(), transitionEmotion() actions
+EmotionHUD.tsx:
+Emotion icon (32px)
+Emotion name in Urdu
+Intensity bar (gold fill, animated)
+Confidence badge
+Style label
+EmotionBadge.tsx: Inline small emotion tag for conversation bubbles
+ZaraAvatar glow color update based on emotionStore.currentEmotion
+useEmotion.ts hook: convenience hook for components
+Phase 4: Voice Center UI
+VoiceCenter.tsx (full panel):
+Microphone toggle button (large, gold when active)
+Current state display
+Device selection dropdowns (microphone, speaker)
+Voice speed slider (0.5 – 2.0)
+Volume slider (0.0 – 1.0)
+TTS provider display
+ListeningIndicator.tsx:
+Animated green dot + "ZARA sun rahi hai..."
+State-based text per ZARA state
+AudioVisualizer.tsx:
+Real-time mic amplitude visualization (Web Audio API)
+9 bars, gold color, smooth animation
+Phase 5: Wake Word Engine (Frontend)
+WakeWordEngine.ts:
+Porcupine Web SDK integration
+Wake word list: ['Hello ZARA', 'Hey ZARA', 'Assalam-o-Alaikum ZARA']
+VITE_PICOVOICE_ACCESS_KEY from env
+Callbacks: onWakeWord(word: string), onError(err: Error)
+States: initialize(), start(), stop(), dispose()
+Fallback: if Porcupine fails, WebSpeech continuous recognition filtered for wake phrases
+useWakeWord.ts hook:
+Auto-initialize on app load
+Dispatch to zaraStore on detection
+zaraStore.ts state machine:
+STANDBY → WAKE_WORD_DETECTED on trigger
+Handle special "Assalam-o-Alaikum" response
+SPEAKING → LISTENING auto-transition
+Microphone permission check + clear error UI if denied
+Phase 6: Speech Recognition
+SpeechRecognitionEngine.ts:
+Web Speech API wrapper (webkitSpeechRecognition / SpeechRecognition)
+Language: 'ur-PK' primary, 'en-US' fallback
+Continuous mode for normal conversation
+onResult(transcript: string): callback
+onSilence(): trigger after 1500ms silence
+onError(err): error handling
+start(), stop(), abort() methods
+useVoiceConversation.ts hook:
+Orchestrate: listen → transcribe → send to backend → get response → speak
+Barge-in: if user speaks during SPEAKING, call VoicePlaybackEngine.stop()
+zaraStore.ts update: LISTENING → PROCESSING on transcript received
+Phase 7: Backend Setup
+Node.js + TypeScript + Express backend
+Folder structure (per TRD Section 4)
+Environment validation (env.ts): check all required env vars on startup
+Health endpoint: GET /api/health → { status: 'ok', timestamp, version }
+Error handler middleware: consistent error response format
+Rate limiting: 100 req/min general, 30 req/min for AI endpoints
+Input validation: Zod schemas for all route inputs
+CORS: restrict to frontend origin
+WebSocket server (wsServer.ts):
+Broadcast ZARA state changes to connected clients
+Message types: STATE_CHANGE, EMOTION_UPDATE, ERROR
+Auth middleware: OWNER_SECRET header validation on all routes except /api/health
+Phase 8: Gemini Model Manager (Backend)
+models.registry.ts: Configurable model list (seed from Backend Schema Section 2.5)
+GeminiModelManager.ts:
+generateResponse(messages, emotion, memories): chat completion
+generateTTS(text, voiceConfig): audio generation
+testConnection(modelId): ping test
+getAvailableModels(): return registry
+trackUsage(data): log to api_usage_logs
+Primary + fallback model logic
+Retry on transient errors (max 3 attempts)
+Quota exceeded → switch to fallback immediately
+chat.routes.ts:
+POST /api/chat: accept { message, conversationId, emotionContext }
+Build Gemini prompt with: system personality, active memories, conversation history
+Return: { response, emotion, confidence, tokensUsed, modelUsed }
+voice.routes.ts:
+POST /api/voice/tts: accept { text, voiceConfig } → return audio buffer
+POST /api/voice/transcribe: accept audio → return transcript (if needed)
+models.routes.ts:
+GET /api/models: list from registry
+POST /api/models/test: test model, return status
+Phase 9: ZARA Personality System (Backend)
+EmotionEngineService.ts:
+analyzeContext(userMessage, conversationHistory): detect appropriate emotion
+buildSystemPrompt(emotion, memories, ownerName): generate ZARA's personality prompt
+Confidence level determination
+Empathy level adjustment
+ZARA System Prompt (built dynamically):
+code
+Code
+Tum ZARA ho — [ownerName] ki personal Pakistani AI assistant.
+Tumhari personality: [emotion-based description]
+Tumhara jawab style: Pakistani Urdu (Roman script) mein
+Tumhara address: Hamesha "[ownerName]" bolo
+Confidence: [HIGH/MEDIUM/LOW]
+Current emotion: [EMOTION NAME]
+...
+Memory injection: get_active_memories() result system prompt mein inject ho
+Conversation context: last 20 messages history mein send hon
+Response formatting: ZARA ka jawab natural Urdu/Roman Urdu mein ho, formal na ho
+Phase 10: Voice Playback (Frontend)
+VoicePlaybackEngine.ts:
+Backend se audio buffer receive karo
+AudioContext + AudioBufferSourceNode se play
+play(audioBuffer): start playback
+stop(): barge-in support — immediate stop
+Amplitude data → send to VoiceWaveform for visualization
+onPlaybackEnd(): callback → trigger LISTENING state
+ConversationOrchestrator.ts:
+Full conversation loop manager
+LISTENING → PROCESSING → SPEAKING → LISTENING
+Error state handling + recovery
+WebSocket state sync with backend
+Backend TTS → Frontend: audio as base64 or streaming blob URL
+Phase 11: Conversation Panel
+ConversationPanel.tsx:
+Scrollable message list
+Auto-scroll to latest message
+conversationStore se messages render
+MessageBubble.tsx:
+User: right-aligned, gold-tinted background
+ZARA: left-aligned, dark background + emotion badge
+Urdu text: font-family: 'Noto Nastaliq Urdu', direction: rtl
+Roman Urdu: Inter font, normal direction
+Timestamp (small, muted)
+TypingIndicator.tsx: 3 bouncing gold dots, "ZARA soch rahi hai..."
+conversationStore.ts (complete):
+addMessage(), clearConversation(), loadHistory() actions
+Save messages to backend via POST /api/conversations
+Phase 12: Memory System
+MemoryService.ts (backend):
+GET /api/memory: fetch get_active_memories() from Supabase
+POST /api/memory: save with user_approved: false initially
+PUT /api/memory/:id: update + confirm
+DELETE /api/memory/:id: soft delete (is_active = false)
+memoryStore.ts (frontend, complete):
+shortTermMemory: current conversation context (in-memory only)
+longTermMemory: fetched from backend
+pendingMemory: items awaiting user approval
+MemoryPanel.tsx:
+List all active memories by category
+Edit (inline), Delete (with confirm modal)
+"Approve pending memories" section
+Export button (download as JSON)
+Memory save flow (per App Flow Section 8):
+ZARA detects important info → asks user → confirm → save
+Phase 13: Dashboard Panels (All)
+Complete all dashboard panels (per App Flow Section 9):
+HomePanel.tsx: ZARA avatar (hero size), greeting, current state, quick-start button
+ModelsPanel.tsx: Model list from /api/models, primary/fallback toggles, test button per model
+APIPanel.tsx: API key status (masked), test connection, usage summary link
+WhatsAppCenter.tsx: Draft message UI, contacts list, history table, "API not connected" notice
+PrivacyPanel.tsx: Mic permission status, mute toggle, data controls, API key security status
+UsageMonitor.tsx: Today/week/month token stats, cost estimate, chart per model
+DiagnosticsPanel.tsx: Run tests: mic test, network ping, model test, TTS test — each shows VERIFIED/FAILED/NOT TESTED
+WindowsCompanion.tsx: Download instructions, auto-start toggle (reads from settings), tray icon preview
+Phase 14: WhatsApp UI Flow
+WhatsAppCenter.tsx (complete):
+Voice command parser: extract contact + message from user speech
+Message preview card
+Confirm modal (per App Flow Section 7)
+Mock send with 2s delay → "simulated" status
+Message history table (from whatsapp_messages table)
+whatsappService.ts (frontend): calls /api/whatsapp/*
+whatsapp.routes.ts (backend): CRUD for whatsapp_messages, mock send logic
+Phase 15: Settings & Memory Persistence
+settingsStore.ts (complete): load from /api/settings on app start
+user_profile preferences sync: owner name, voice settings, wake word toggle
+memory.routes.ts (backend, complete): all CRUD + get_active_memories() function call
+Settings panel persistence: all changes → PUT /api/settings/:key
+Phase 16: Electron Desktop Companion
+electron/main.js:
+BrowserWindow loading the React app (production build)
+Custom frameless window with dark title bar
+IPC handlers: mute, unmute, show, hide, quit
+electron/tray.js:
+System tray icon (16x16 "Z" on dark)
+Context menu: Open, Mute, Sleep Mode, Settings, Exit
+Icon state changes per ZARA state (gold/dim/red-dot)
+electron/autostart.js:
+Windows startup integration via app.setLoginItemSettings()
+Toggle from Windows Companion panel
+electron/wakeWord.node.js:
+Porcupine Node.js SDK
+Runs in background even when window minimized
+IPC event to renderer on wake word detected
+electron/credentialStore.js:
+keytar library for Windows Credential Store
+Store GEMINI_API_KEY securely
+electron/preload.js:
+contextIsolation: true, nodeIntegration: false
+Expose only: zaraAPI: { mute, unmute, getCredential, setCredential }
+Electron Builder config in package.json:
+Target: Windows installer (NSIS)
+Icon: custom zara-icon.ico
+Auto-updater config
+Phase 17: Polish & QA
+All loading states: skeleton shimmer on every panel
+All empty states: per App Flow Section 14
+All error states: per App Flow Section 14
+Animations: verify all transitions per UI/UX Brief Section 14
+Responsive: test at 1200px, 768px, mobile
+State machine: verify no invalid state transitions
+No fake success: confirm every status reflects real app state
+Env vars: verify no hardcoded keys anywhere in codebase
+package.json: verify npm run build works, output is dist
+_redirects in public/: /* /index.html 200
+bun.lock: ensure not present (only package-lock.json)
+.npmrc: verify legacy-peer-deps=true in root
+Build Verification Checklist
+Item	Expected
+npm run build	Exits 0, dist/ created
+dist/index.html	Exists
+dist/_redirects	/* /index.html 200
+No API keys in dist/	True
+All routes load	/, /voice, /emotion, /models, /api-settings, /whatsapp, /memory, /history, /windows, /privacy, /diagnostics, /usage
+ZARA avatar renders	Gold ring visible
+Status badge shows	INITIALIZING → STANDBY
+Emotion HUD shows	Default emotion displayed
+Sidebar navigation	All 12 routes navigable
+Dark theme	var(--bg-primary): #0A0A0F
+Gold accents	var(--gold-primary): #F59E0B
+Dependencies List
+Frontend
+code
+JSON
+{
+  "react": "^18.3.1",
+  "react-dom": "^18.3.1",
+  "react-router-dom": "^6.x",
+  "typescript": "^5.x",
+  "zustand": "^4.x",
+  "@supabase/supabase-js": "^2.x",
+  "tailwindcss": "^3.x",
+  "lucide-react": "^0.383.0",
+  "@picovoice/porcupine-web": "^3.x"
+}
+Backend
+code
+JSON
+{
+  "express": "^4.x",
+  "typescript": "^5.x",
+  "ws": "^8.x",
+  "@google/generative-ai": "^0.x",
+  "@supabase/supabase-js": "^2.x",
+  "express-rate-limit": "^7.x",
+  "zod": "^3.x",
+  "dotenv": "^16.x",
+  "cors": "^2.x"
+}
+Electron
+code
+JSON
+{
+  "electron": "^31.x",
+  "electron-builder": "^24.x",
+  "@picovoice/porcupine-node": "^3.x",
+  "keytar": "^7.x"
+}

@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0A0A0F;
+  --bg-secondary: #111118;
+  --bg-elevated: #1A1A24;
+  --bg-glass: rgba(255, 255, 255, 0.04);
+
+  --gold-primary: #F59E0B;
+  --gold-light: #FCD34D;
+  --gold-dark: #B45309;
+  --gold-glow: rgba(245, 158, 11, 0.25);
+  --gold-subtle: rgba(245, 158, 11, 0.08);
+
+  --status-listening: #10B981;
+  --status-speaking: #8B5CF6;
+  --status-processing: #3B82F6;
+  --status-standby: #F59E0B;
+  --status-error: #EF4444;
+  --status-muted: #6B7280;
+  --status-reconnect: #F59E0B;
+
+  --emotion-happy: #F59E0B;
+  --emotion-sad: #60A5FA;
+  --emotion-angry: #EF4444;
+  --emotion-confident: #8B5CF6;
+  --emotion-caring: #EC4899;
+  --emotion-humorous: #F97316;
+  --emotion-curious: #06B6D4;
+  --emotion-calm: #10B981;
+  --emotion-surprised: #A855F7;
+  --emotion-focused: #3B82F6;
+
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-muted: #4B5563;
+  --text-gold: #F59E0B;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-gold: rgba(245, 158, 11, 0.3);
+  --border-active: rgba(245, 158, 11, 0.6);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+.font-brand {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-urdu {
+  font-family: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0A0A0F;
+}
+::-webkit-scrollbar-thumb {
+  background: #1F2430;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #F59E0B;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 45px rgba(245, 158, 11, 0.45);
+  }
+}
+
+@keyframes listeningPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 50px rgba(16, 185, 129, 0.65);
+  }
+}
+
+@keyframes waveRing {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+.animate-listening-glow {
+  animation: listeningPulse 1.4s ease-in-out infinite;
+}
+
+.animate-wave-ring {
+  animation: waveRing 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
