@@ -467,7 +467,7 @@ class ConversationOrchestrator {
       }
 
       const responseText = `Theek hai Boss, ${waCheck.contactName} ko yeh message draft kar diya hai: "${waCheck.messageText}". WhatsApp dispatch ready hai!`;
-      this.speakReply(responseText, 'Focused', 85, 'high', 'gemini-2.0-flash');
+      this.speakReply(responseText, 'Focused', 85, 'high', 'gemini-3.8-flash');
       return;
     }
 
@@ -489,7 +489,7 @@ class ConversationOrchestrator {
           highThinking,
           currentEmotion,
           language: currentLang,
-          modelId: highThinking ? 'gemini-2.5-flash' : 'gemini-2.0-flash',
+          modelId: highThinking ? 'gemini-4-argon' : 'gemini-3.8-flash',
         }),
       });
 
@@ -546,7 +546,7 @@ class ConversationOrchestrator {
     emotion = 'Confident',
     intensity = 80,
     confidence = 'high',
-    modelUsed = 'gemini-2.0-flash'
+    modelUsed = 'gemini-3.8-flash'
   ) {
     const isMuted = useZaraStore.getState().isMuted;
     if (isMuted) {
@@ -615,7 +615,7 @@ class ConversationOrchestrator {
         'Confident',
         85,
         'high',
-        'gemini-2.0-flash'
+        'gemini-3.8-flash'
       );
     } else {
       this.speakReply(
@@ -623,7 +623,7 @@ class ConversationOrchestrator {
         'Confident',
         85,
         'high',
-        'gemini-2.0-flash'
+        'gemini-3.8-flash'
       );
     }
   }

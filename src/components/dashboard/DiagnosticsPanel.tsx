@@ -32,7 +32,7 @@ export const DiagnosticsPanel: React.FC = () => {
       name: 'Gemini AI Model Connection',
       urduName: 'جیمینائی ماڈل رابطہ',
       status: 'VERIFIED',
-      detail: 'Primary chat model (gemini-2.0-flash) & High Thinking (gemini-2.5-flash) operational.',
+      detail: 'Primary chat model (gemini-3.8-flash) & High Thinking (gemini-4-argon) operational.',
     },
     {
       id: 'tts',
@@ -75,7 +75,7 @@ export const DiagnosticsPanel: React.FC = () => {
       const mRes = await fetch('/api/models/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId: 'gemini-2.0-flash' }),
+        body: JSON.stringify({ modelId: 'gemini-3.8-flash' }),
       });
       geminiOk = mRes.ok;
     } catch (e) {

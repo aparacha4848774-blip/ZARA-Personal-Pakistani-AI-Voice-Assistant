@@ -15,7 +15,7 @@ export const APIPanel: React.FC = () => {
       const res = await fetch('/api/models/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId: 'gemini-2.0-flash' }),
+        body: JSON.stringify({ modelId: 'gemini-3.8-flash' }),
       });
       const data = await res.json();
       const isOk =
