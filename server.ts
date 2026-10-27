@@ -93,8 +93,9 @@ function requireAuthorization(req: Request, res: Response, next: NextFunction) {
   const zaraAuth = req.headers['x-zara-auth'] as string | undefined;
   const origin = req.headers.origin;
   const host = req.get('host');
+  const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
 
-  const check = validateAuthorization(authHeader, zaraAuth, origin, host);
+  const check = validateAuthorization(authHeader, zaraAuth, origin, host, clientIp);
   if (!check.authorized) {
     return res.status(403).json({
       success: false,
@@ -643,11 +644,11 @@ app.post('/api/voice/tts', async (req: Request, res: Response) => {
 // -------------------------------------------------------------
 // Durable Memory Endpoints
 // -------------------------------------------------------------
-app.get('/api/memory', (_req: Request, res: Response) => {
+app.get(['/api/memory', '/api/memories'], (_req: Request, res: Response) => {
   res.json({ memories: durableStorage.getMemories() });
 });
 
-app.post('/api/memory', (req: Request, res: Response) => {
+app.post(['/api/memory', '/api/memories'], requireAuthorization, (req: Request, res: Response) => {
   const { category, key, value, importance, userApproved } = req.body;
   if (!key || !value) {
     return res.status(400).json({ error: 'Key and value are required for memory creation.' });
@@ -665,7 +666,7 @@ app.post('/api/memory', (req: Request, res: Response) => {
   res.status(201).json({ memory: newEntry });
 });
 
-app.put('/api/memory/:id', (req: Request, res: Response) => {
+app.put(['/api/memory/:id', '/api/memories/:id'], requireAuthorization, (req: Request, res: Response) => {
   const { id } = req.params;
   const updated = durableStorage.updateMemory(id, req.body);
   if (!updated) {
@@ -674,13 +675,20 @@ app.put('/api/memory/:id', (req: Request, res: Response) => {
   res.json({ memory: updated });
 });
 
-app.delete('/api/memory/:id', (req: Request, res: Response) => {
+app.delete(['/api/memory/:id', '/api/memories/:id'], requireAuthorization, (req: Request, res: Response) => {
   const { id } = req.params;
   const deleted = durableStorage.deleteMemory(id);
   if (!deleted) {
     return res.status(404).json({ error: 'Memory item not found.' });
   }
   res.json({ success: true, id });
+});
+
+// Bulk clear all memories
+app.delete(['/api/memory', '/api/memories'], requireAuthorization, (_req: Request, res: Response) => {
+  durableStorage.clearMemories();
+  durableStorage.flushSync();
+  res.json({ success: true, count: 0, memories: [] });
 });
 
 // -------------------------------------------------------------
@@ -690,7 +698,7 @@ app.get('/api/whatsapp/messages', (_req: Request, res: Response) => {
   res.json({ messages: durableStorage.getWhatsAppMessages() });
 });
 
-app.post('/api/whatsapp/draft', (req: Request, res: Response) => {
+app.post('/api/whatsapp/draft', requireAuthorization, (req: Request, res: Response) => {
   const { contactName, contactIdentifier, messageText } = req.body;
   if (!contactName || !messageText) {
     return res.status(400).json({ error: 'Contact name and message text are required.' });
@@ -712,7 +720,7 @@ app.post('/api/whatsapp/draft', (req: Request, res: Response) => {
   res.status(201).json({ draft });
 });
 
-app.post('/api/whatsapp/send', async (req: Request, res: Response) => {
+app.post('/api/whatsapp/send', requireAuthorization, async (req: Request, res: Response) => {
   const { id, confirmed } = req.body;
   if (!id) {
     return res.status(400).json({ error: 'Message draft ID is required.' });
@@ -729,7 +737,7 @@ app.get('/api/settings', (_req: Request, res: Response) => {
   res.json({ settings: durableStorage.getSettings() });
 });
 
-app.put('/api/settings/:key', (req: Request, res: Response) => {
+app.put('/api/settings/:key', requireAuthorization, (req: Request, res: Response) => {
   const { key } = req.params;
   const { value } = req.body;
   const current = durableStorage.getSettings();
@@ -740,6 +748,20 @@ app.put('/api/settings/:key', (req: Request, res: Response) => {
   }
 
   res.status(400).json({ error: `Unknown setting key: ${key}` });
+});
+
+app.post('/api/settings', requireAuthorization, (req: Request, res: Response) => {
+  const updates = req.body;
+  if (!updates || typeof updates !== 'object') {
+    return res.status(400).json({ error: 'Settings object is required.' });
+  }
+  const current = durableStorage.getSettings();
+  for (const [k, v] of Object.entries(updates)) {
+    if (k in current) {
+      durableStorage.updateSetting(k as any, v as any);
+    }
+  }
+  res.json({ settings: durableStorage.getSettings() });
 });
 
 // Usage statistics
@@ -948,41 +970,59 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
         const isMac = process.platform === 'darwin';
         const homedir = os.homedir();
         const fullPath = path.join(homedir, folderName);
+        const hasGuiDisplay = Boolean(process.env.DISPLAY || isWin || isMac);
 
-        // Attempt real OS open if desktop display exists
-        if (process.env.DISPLAY || isWin || isMac) {
+        if (hasGuiDisplay) {
           const openCmd = isWin ? `explorer "${fullPath}"` : isMac ? `open "${fullPath}"` : `xdg-open "${fullPath}"`;
           exec(openCmd, (err) => {
             if (err) console.info('[System Control] Folder launch note:', err.message);
           });
+          resultMessage = `Boss, ${folderName} folder khol diya hai!`;
+          extraData = { folder: folderName, path: fullPath, executionMode: 'native', status: 'executed' };
+        } else {
+          resultMessage = `Boss, headless container environment hai (no GUI display server). ${folderName} folder simulated view ready hai.`;
+          extraData = {
+            folder: folderName,
+            path: fullPath,
+            executionMode: 'simulated',
+            status: 'simulated',
+            reason: 'Headless Linux environment: physical desktop display (X11/Wayland) not available.',
+          };
         }
-
-        resultMessage = `Boss, ${folderName} folder khol diya hai!`;
-        extraData = { folder: folderName, path: fullPath };
         break;
       }
 
       case 'file_open': {
         const fileName = (payload?.fileName || target || '').replace(/[^\w.-]/g, '');
-        resultMessage = `Boss, file "${fileName}" open kar di hai!`;
-        extraData = { fileName };
+        const fileExists = laptopState.simulatedFiles.some((f) => f.name.toLowerCase() === fileName.toLowerCase());
+        resultMessage = fileExists
+          ? `Boss, file "${fileName}" open kar di hai (preview ready)!`
+          : `Boss, file "${fileName}" open simulated state mein load kar di hai.`;
+        extraData = { fileName, found: fileExists, executionMode: 'simulated', status: 'simulated' };
         break;
       }
 
       case 'file_search': {
         const fileName = (payload?.fileName || target || '').trim();
-        resultMessage = `Boss, "${fileName}" file search complete!`;
-        extraData = { fileName, found: true };
+        const matches = laptopState.simulatedFiles.filter((f) =>
+          f.name.toLowerCase().includes(fileName.toLowerCase())
+        );
+        resultMessage = `Boss, "${fileName}" file search complete! (${matches.length} files found)`;
+        extraData = { fileName, found: matches.length > 0, count: matches.length, results: matches, executionMode: 'simulated', status: 'executed' };
         break;
       }
 
       case 'file_delete': {
         const fileName = (payload?.fileName || target || '').replace(/[^\w.-]/g, '');
+        const before = laptopState.simulatedFiles.length;
         laptopState.simulatedFiles = laptopState.simulatedFiles.filter(
           (f) => f.name.toLowerCase() !== fileName.toLowerCase()
         );
-        resultMessage = `Boss, "${fileName}" file delete kar di gayi hai.`;
-        extraData = { fileName, deleted: true };
+        const deleted = laptopState.simulatedFiles.length < before;
+        resultMessage = deleted
+          ? `Boss, "${fileName}" file delete kar di gayi hai.`
+          : `Boss, "${fileName}" file nahi mili delete karne ke liye.`;
+        extraData = { fileName, deleted, executionMode: 'simulated', status: deleted ? 'executed' : 'not_found' };
         break;
       }
 
@@ -993,9 +1033,12 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
         if (fileItem) {
           fileItem.name = newName;
           fileItem.path = fileItem.path.replace(oldName, newName);
+          resultMessage = `Boss, "${oldName}" ko rename karke "${newName}" kar diya hai!`;
+          extraData = { oldName, newName, renamed: true, executionMode: 'simulated', status: 'executed' };
+        } else {
+          resultMessage = `Boss, rename karne ke liye "${oldName}" nahi mili.`;
+          extraData = { oldName, newName, renamed: false, executionMode: 'simulated', status: 'not_found' };
         }
-        resultMessage = `Boss, "${oldName}" ko rename karke "${newName}" kar diya hai!`;
-        extraData = { oldName, newName };
         break;
       }
 
@@ -1011,15 +1054,24 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
 
         const isWin = process.platform === 'win32';
         const isMac = process.platform === 'darwin';
-        if (process.env.DISPLAY || isWin || isMac) {
+        const hasGuiDisplay = Boolean(process.env.DISPLAY || isWin || isMac);
+
+        if (hasGuiDisplay) {
           const cmd = isWin ? `start "" "${urlValidation.sanitizedUrl}"` : isMac ? `open "${urlValidation.sanitizedUrl}"` : `xdg-open "${urlValidation.sanitizedUrl}"`;
           exec(cmd, (err) => {
             if (err) console.info('[System Control] URL open note:', err.message);
           });
+          resultMessage = `Boss, browser mein "${urlValidation.sanitizedUrl}" open kar diya hai!`;
+          extraData = { url: urlValidation.sanitizedUrl, executionMode: 'native', status: 'executed' };
+        } else {
+          resultMessage = `Boss, headless environment hai (GUI browser window cannot open). URL record ho gaya: "${urlValidation.sanitizedUrl}".`;
+          extraData = {
+            url: urlValidation.sanitizedUrl,
+            executionMode: 'simulated',
+            status: 'simulated',
+            reason: 'Headless Linux environment: desktop display server not available.',
+          };
         }
-
-        resultMessage = `Boss, browser mein "${urlValidation.sanitizedUrl}" open kar diya hai!`;
-        extraData = { url: urlValidation.sanitizedUrl };
         break;
       }
 
@@ -1031,37 +1083,53 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
           : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 
         const urlValidation = validateSafeUrl(rawUrl);
-        if (urlValidation.valid && urlValidation.sanitizedUrl) {
-          const isWin = process.platform === 'win32';
-          const isMac = process.platform === 'darwin';
-          if (process.env.DISPLAY || isWin || isMac) {
-            const cmd = isWin ? `start "" "${urlValidation.sanitizedUrl}"` : isMac ? `open "${urlValidation.sanitizedUrl}"` : `xdg-open "${urlValidation.sanitizedUrl}"`;
-            exec(cmd, (err) => {
-              if (err) console.info('[System Control] Search launch note:', err.message);
-            });
-          }
+        if (!urlValidation.valid || !urlValidation.sanitizedUrl) {
+          return res.status(400).json({
+            success: false,
+            error: urlValidation.reason || 'Invalid search query',
+          });
         }
 
-        resultMessage = `Boss, ${engine === 'youtube' ? 'YouTube' : 'Google'} par "${query}" search open kar diya hai!`;
-        extraData = { query, engine, url: rawUrl };
+        const isWin = process.platform === 'win32';
+        const isMac = process.platform === 'darwin';
+        const hasGuiDisplay = Boolean(process.env.DISPLAY || isWin || isMac);
+
+        if (hasGuiDisplay) {
+          const cmd = isWin ? `start "" "${urlValidation.sanitizedUrl}"` : isMac ? `open "${urlValidation.sanitizedUrl}"` : `xdg-open "${urlValidation.sanitizedUrl}"`;
+          exec(cmd, (err) => {
+            if (err) console.info('[System Control] Search launch note:', err.message);
+          });
+          resultMessage = `Boss, ${engine === 'youtube' ? 'YouTube' : 'Google'} par "${query}" search open kar diya hai!`;
+          extraData = { query, engine, url: rawUrl, executionMode: 'native', status: 'executed' };
+        } else {
+          resultMessage = `Boss, headless container: search query "${query}" recorded (${engine}).`;
+          extraData = {
+            query,
+            engine,
+            url: rawUrl,
+            executionMode: 'simulated',
+            status: 'simulated',
+            reason: 'Headless Linux environment: GUI browser cannot be launched.',
+          };
+        }
         break;
       }
 
       case 'browser_tab_close': {
-        resultMessage = 'Boss, browser tab close signal bhej diya (Ctrl+W).';
-        extraData = { shortcut: 'Ctrl+W' };
+        resultMessage = 'Boss, browser tab close signal record ho gaya (Ctrl+W).';
+        extraData = { shortcut: 'Ctrl+W', executionMode: 'simulated', status: 'simulated' };
         break;
       }
 
       case 'browser_tab_open': {
-        resultMessage = 'Boss, naya browser tab khol diya (Ctrl+T).';
-        extraData = { shortcut: 'Ctrl+T' };
+        resultMessage = 'Boss, naya browser tab signal record ho gaya (Ctrl+T).';
+        extraData = { shortcut: 'Ctrl+T', executionMode: 'simulated', status: 'simulated' };
         break;
       }
 
       case 'browser_bookmark': {
-        resultMessage = 'Boss, bookmarks manager open kar diya (Ctrl+Shift+O).';
-        extraData = { shortcut: 'Ctrl+Shift+O' };
+        resultMessage = 'Boss, bookmarks manager signal record ho gaya (Ctrl+Shift+O).';
+        extraData = { shortcut: 'Ctrl+Shift+O', executionMode: 'simulated', status: 'simulated' };
         break;
       }
 
@@ -1077,16 +1145,25 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
 
         const isWin = process.platform === 'win32';
         const isMac = process.platform === 'darwin';
+        const hasGuiDisplay = Boolean(process.env.DISPLAY || isWin || isMac);
         const cmd = isWin ? appValidation.command.win : isMac ? appValidation.command.mac : appValidation.command.linux;
 
-        if (process.env.DISPLAY || isWin || isMac) {
+        if (hasGuiDisplay) {
           exec(cmd, (err) => {
             if (err) console.info('[System Control] App launch note:', err.message);
           });
+          resultMessage = `Boss, ${appName} open kar diya hai!`;
+          extraData = { appName, launched: true, executionMode: 'native', status: 'executed' };
+        } else {
+          resultMessage = `Boss, headless container mein desktop application "${appName}" directly open nahi ho sakti (no X11 display). Simulation active hai.`;
+          extraData = {
+            appName,
+            launched: false,
+            executionMode: 'simulated',
+            status: 'simulated',
+            reason: 'Headless Linux environment: GUI application display server not available.',
+          };
         }
-
-        resultMessage = `Boss, ${appName} open kar diya hai!`;
-        extraData = { appName, launched: true };
         break;
       }
 
@@ -1100,8 +1177,17 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
           });
         }
 
-        resultMessage = `Boss, ${appName} band kar diya hai.`;
-        extraData = { appName, closed: true };
+        const isWin = process.platform === 'win32';
+        const isMac = process.platform === 'darwin';
+        const hasGuiDisplay = Boolean(process.env.DISPLAY || isWin || isMac);
+
+        if (hasGuiDisplay) {
+          resultMessage = `Boss, ${appName} band kar diya hai.`;
+          extraData = { appName, closed: true, executionMode: 'native', status: 'executed' };
+        } else {
+          resultMessage = `Boss, ${appName} simulated state close ho gayi.`;
+          extraData = { appName, closed: true, executionMode: 'simulated', status: 'simulated' };
+        }
         break;
       }
 
@@ -1111,7 +1197,7 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
         resultMessage = volume === 0
           ? 'Boss, laptop ka sound mute kar diya hai.'
           : `Boss, laptop volume ${volume}% set kar diya hai.`;
-        extraData = { newVolume: volume, isMuted: volume === 0 };
+        extraData = { newVolume: volume, isMuted: volume === 0, executionMode: 'native', status: 'executed' };
         break;
       }
 
@@ -1123,7 +1209,7 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
         resultMessage = delta > 0
           ? `Boss, volume barha kar ${nextVol}% kar diya hai.`
           : `Boss, volume kam karke ${nextVol}% kar diya hai.`;
-        extraData = { newVolume: nextVol, delta };
+        extraData = { newVolume: nextVol, delta, executionMode: 'native', status: 'executed' };
         break;
       }
 
@@ -1149,29 +1235,43 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
         laptopState.screenshots.unshift(record);
         resultMessage = isDisplayPresent
           ? 'Boss, desktop ka screenshot le liya hai! Preview samne hai.'
-          : 'Boss, desktop container simulation preview generate kar diya hai.';
-        extraData = { screenshot: record };
+          : 'Boss, desktop container simulation preview generate kar diya hai (headless environment).';
+        extraData = {
+          screenshot: record,
+          executionMode: isDisplayPresent ? 'native' : 'simulated',
+          status: isDisplayPresent ? 'executed' : 'simulated',
+        };
         break;
       }
 
       case 'whatsapp_launch': {
         const isWin = process.platform === 'win32';
         const isMac = process.platform === 'darwin';
-        if (process.env.DISPLAY || isWin || isMac) {
+        const hasGuiDisplay = Boolean(process.env.DISPLAY || isWin || isMac);
+
+        if (hasGuiDisplay) {
           const cmd = isWin ? 'start whatsapp:' : 'xdg-open whatsapp:';
           exec(cmd, (err) => {
             if (err) console.info('[System Control] WhatsApp launch note:', err.message);
           });
+          resultMessage = 'Boss, WhatsApp Desktop protocol launch kar diya hai!';
+          extraData = { launched: true, executionMode: 'native', status: 'executed' };
+        } else {
+          resultMessage = 'Boss, headless environment mein WhatsApp Desktop GUI open nahi ho sakta; web draft protocol ready hai.';
+          extraData = {
+            launched: false,
+            executionMode: 'simulated',
+            status: 'simulated',
+            reason: 'Headless Linux environment: GUI application protocol not supported without desktop display.',
+          };
         }
-        resultMessage = 'Boss, WhatsApp Desktop protocol launch kar diya hai!';
-        extraData = { launched: true };
         break;
       }
 
       case 'whatsapp_chat_open': {
         const contact = payload?.contactName || target || 'Hamza';
-        resultMessage = `Boss, WhatsApp par "${contact}" ki chat khol di hai!`;
-        extraData = { contactName: contact };
+        resultMessage = `Boss, WhatsApp par "${contact}" ki chat simulated state mein open kar di hai!`;
+        extraData = { contactName: contact, executionMode: 'simulated', status: 'simulated' };
         break;
       }
 
@@ -1193,8 +1293,15 @@ app.post('/api/system/control/execute', requireAuthorization, async (req: Reques
         };
         durableStorage.addWhatsAppMessage(draft);
 
-        resultMessage = `Boss, ${contact} ko message system clipboard pe copy kar ke WhatsApp protocol trigger kar diya hai!`;
-        extraData = { contactName: contact, messageText: msgText, copiedToClipboard: true };
+        resultMessage = `Boss, ${contact} ka draft message recorded aur clipboard par copy ho gaya. (Real WhatsApp Cloud API requires WHATSAPP_API_TOKEN).`;
+        extraData = {
+          contactName: contact,
+          messageText: msgText,
+          copiedToClipboard: true,
+          executionMode: 'simulated',
+          status: 'draft_ready',
+          provider: 'local_store',
+        };
         break;
       }
 

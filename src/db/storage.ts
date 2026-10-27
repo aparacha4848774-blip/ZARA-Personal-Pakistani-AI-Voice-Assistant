@@ -151,7 +151,7 @@ export class DurableStorageService {
       version: parsed.version || 1,
       lastUpdated: parsed.lastUpdated || new Date().toISOString(),
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
-      memories: Array.isArray(parsed.memories) && parsed.memories.length > 0 ? parsed.memories : [...DEFAULT_MEMORIES],
+      memories: Array.isArray(parsed.memories) ? parsed.memories : [...DEFAULT_MEMORIES],
       whatsappMessages: Array.isArray(parsed.whatsappMessages) ? parsed.whatsappMessages : [...DEFAULT_WHATSAPP],
       automationHistory: Array.isArray(parsed.automationHistory) ? parsed.automationHistory : [],
       usage: {
@@ -346,6 +346,11 @@ export class DurableStorageService {
     const deleted = this.cache.memories.length < beforeLen;
     if (deleted) this.scheduleSave();
     return deleted;
+  }
+
+  public clearMemories(): void {
+    this.cache.memories = [];
+    this.scheduleSave();
   }
 
   // WhatsApp Messages

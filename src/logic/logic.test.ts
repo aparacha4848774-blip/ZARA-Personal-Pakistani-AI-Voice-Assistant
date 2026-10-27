@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import fs from 'node:fs';
 import { inferEmotionFromText, EMOTIONS } from './emotionRules.ts';
 import { detectWakeWord } from './wakeWordDetector.ts';
 import { parseWhatsAppCommand } from './whatsappParser.ts';
@@ -761,7 +763,7 @@ test('Security: validateExportPath blocks directory traversal sequences', async 
   }
 });
 
-test('Security: validateExportPath blocks null byte injection and protected app files', async () => {
+test('Security: validateExportPath blocks null byte injection and credential files while permitting generated project files', async () => {
   const { validateExportPath } = await import('./securityService.ts');
   const baseDir = '/tmp/safe_export_dir';
 
@@ -770,13 +772,20 @@ test('Security: validateExportPath blocks null byte injection and protected app 
   assert.equal(nullByte.valid, false);
   assert.ok(nullByte.reason?.includes('Null byte'));
 
-  // Protected files
-  const protectedFiles = ['.env', '.env.local', 'package.json', 'server.ts', 'tsconfig.json'];
-  for (const pf of protectedFiles) {
-    const res = validateExportPath(baseDir, pf);
-    assert.equal(res.valid, false, `Protected file must be blocked: ${pf}`);
-    assert.ok(res.reason?.includes('protected application file'));
+  // Credential and secret files must be blocked
+  const secretFiles = ['.env', '.env.local', 'id_rsa', '.git', '.npmrc', 'private.pem'];
+  for (const sf of secretFiles) {
+    const res = validateExportPath(baseDir, sf);
+    assert.equal(res.valid, false, `Secret file must be blocked: ${sf}`);
+    assert.ok(res.reason?.includes('forbidden') || res.reason?.includes('protected'));
   }
+
+  // Generated project files must be allowed inside baseDir
+  const pkgRes = validateExportPath(baseDir, 'package.json');
+  assert.equal(pkgRes.valid, true, 'Generated project package.json must be allowed');
+
+  const tsRes = validateExportPath(baseDir, 'tsconfig.json');
+  assert.equal(tsRes.valid, true, 'Generated project tsconfig.json must be allowed');
 });
 
 test('Security: validateSafeUrl validates protocols and rejects command injection', async () => {
@@ -1284,6 +1293,235 @@ test('DurableStorage: recovers automatically from corrupted JSON file using back
     } catch {
       // ignore
     }
+  }
+});
+
+test('Priority 3: Durable Storage preserves intentionally empty memories array across process restarts', async () => {
+  const { DurableStorageService } = await import('../db/storage.ts');
+  const testDir = path.resolve(process.cwd(), `data_test_empty_memories_${Date.now()}`);
+
+  try {
+    // 1. Initial creation seeds default memories
+    const store1 = new DurableStorageService(testDir);
+    assert.ok(store1.getMemories().length > 0, 'New storage should have initial default memories');
+
+    // 2. Clear all memories and flush to disk
+    store1.clearMemories();
+    store1.flushSync();
+    assert.equal(store1.getMemories().length, 0, 'Memories should be empty after clearMemories');
+
+    // Verify raw file has "memories": []
+    const dbFile = path.join(testDir, 'zara_db.json');
+    assert.ok(fs.existsSync(dbFile), 'Database file must exist');
+    const raw = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+    assert.deepEqual(raw.memories, [], 'Saved file must have empty memories array');
+
+    // 3. Create a brand new storage instance simulating process restart
+    const store2 = new DurableStorageService(testDir);
+    const reloadedMemories = store2.getMemories();
+
+    // MUST remain 0: no deleted default memories should return!
+    assert.equal(
+      reloadedMemories.length,
+      0,
+      'Intentionally empty memories array must be preserved across restarts; default memories must NOT return!'
+    );
+  } finally {
+    try {
+      if (fs.existsSync(testDir)) fs.rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
+});
+
+test('Priority 2: Project Export allows generated project own package.json & tsconfig.json while strictly protecting app files', async () => {
+  const { validateExportPath } = await import('./securityService.ts');
+  const { execFile } = await import('child_process');
+  const { promisify } = await import('util');
+  const execFileAsync = promisify(execFile);
+
+  const testProjDir = path.resolve(process.cwd(), 'generated_projects', `test_pkg_${Date.now()}`);
+
+  try {
+    fs.mkdirSync(testProjDir, { recursive: true });
+
+    // 1. Permitted project configuration files inside the generated project
+    const pkgCheck = validateExportPath(testProjDir, 'package.json');
+    assert.equal(pkgCheck.valid, true, 'Generated project own package.json must be allowed');
+    assert.ok(pkgCheck.resolvedPath?.endsWith('package.json'));
+
+    const tsCheck = validateExportPath(testProjDir, 'tsconfig.json');
+    assert.equal(tsCheck.valid, true, 'Generated project own tsconfig.json must be allowed');
+
+    const indexCheck = validateExportPath(testProjDir, 'index.js');
+    assert.equal(indexCheck.valid, true, 'Generated project own index.js must be allowed');
+
+    // 2. Strictly forbidden: sensitive secret files
+    const envCheck = validateExportPath(testProjDir, '.env');
+    assert.equal(envCheck.valid, false, '.env must be forbidden');
+
+    const gitCheck = validateExportPath(testProjDir, '.git/config');
+    assert.equal(gitCheck.valid, false, '.git must be forbidden');
+
+    const sshCheck = validateExportPath(testProjDir, 'id_rsa');
+    assert.equal(sshCheck.valid, false, 'SSH keys must be forbidden');
+
+    // 3. Strictly forbidden: traversal outside project directory
+    const traversalCheck = validateExportPath(testProjDir, '../../server.ts');
+    assert.equal(traversalCheck.valid, false, 'Traversal out of project must be forbidden');
+
+    // 4. Test actual file creation and execution
+    fs.writeFileSync(
+      pkgCheck.resolvedPath!,
+      JSON.stringify({ name: 'test-exported-app', version: '1.0.0', type: 'module' }),
+      'utf8'
+    );
+    fs.writeFileSync(
+      indexCheck.resolvedPath!,
+      'console.log("EXPORTED_PROJECT_RUN_SUCCESS");',
+      'utf8'
+    );
+
+    const { stdout } = await execFileAsync('node', ['index.js'], { cwd: testProjDir });
+    assert.ok(stdout.includes('EXPORTED_PROJECT_RUN_SUCCESS'), 'Exported project code must execute successfully');
+  } finally {
+    try {
+      if (fs.existsSync(testProjDir)) fs.rmSync(testProjDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
+});
+
+test('Priority 1: validateAuthorization strictly enforces token in production and blocks unauthenticated requests, missing Origin, and spoofed Host', async () => {
+  const { validateAuthorization } = await import('./securityService.ts');
+  const prevEnv = process.env.NODE_ENV;
+  const prevToken = process.env.ZARA_AUTH_TOKEN;
+
+  try {
+    // 1. Production Fail-Closed test: ZARA_AUTH_TOKEN is unset in production
+    process.env.NODE_ENV = 'production';
+    delete process.env.ZARA_AUTH_TOKEN;
+
+    const prodMissingToken = validateAuthorization(
+      undefined,
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodMissingToken.authorized, false, 'Production without ZARA_AUTH_TOKEN must fail closed');
+    assert.ok(prodMissingToken.reason?.includes('fail-closed'));
+
+    // 2. Production with valid token
+    process.env.ZARA_AUTH_TOKEN = 'secret-prod-token-12345';
+    const prodValidBearer = validateAuthorization(
+      'Bearer secret-prod-token-12345',
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodValidBearer.authorized, true, 'Valid Bearer token in production must be authorized');
+
+    const prodValidHeader = validateAuthorization(
+      undefined,
+      'secret-prod-token-12345',
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodValidHeader.authorized, true, 'Valid X-ZARA-AUTH header in production must be authorized');
+
+    // 3. Incorrect token
+    const prodWrongToken = validateAuthorization(
+      'Bearer wrong-token',
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodWrongToken.authorized, false, 'Incorrect token must be rejected');
+
+    // 4. Missing Origin when token is unset (development mode)
+    process.env.NODE_ENV = 'development';
+    delete process.env.ZARA_AUTH_TOKEN;
+
+    const unauthMissingOrigin = validateAuthorization(
+      undefined,
+      undefined,
+      undefined, // Missing Origin!
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(unauthMissingOrigin.authorized, false, 'Missing Origin without token must NOT be treated as authentication');
+
+    // 5. Spoofed Host header from remote IP
+    const spoofedHost = validateAuthorization(
+      undefined,
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '198.51.100.42' // Remote IP pretending to be localhost
+    );
+    assert.equal(spoofedHost.authorized, false, 'Remote client spoofing localhost Host header must be rejected');
+    assert.ok(spoofedHost.reason?.includes('spoofed'));
+
+    // 6. Cross-Origin CSRF attack
+    const crossOrigin = validateAuthorization(
+      undefined,
+      undefined,
+      'https://evil-attacker-site.com',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(crossOrigin.authorized, false, 'Cross-origin request must be rejected');
+    assert.ok(crossOrigin.reason?.includes('cross-origin') || crossOrigin.reason?.includes('CSRF'));
+  } finally {
+    process.env.NODE_ENV = prevEnv;
+    if (prevToken) {
+      process.env.ZARA_AUTH_TOKEN = prevToken;
+    } else {
+      delete process.env.ZARA_AUTH_TOKEN;
+    }
+  }
+});
+
+test('Priority 4: Truthful WhatsApp status reporting without fake delivery claims', async () => {
+  const { processWhatsAppDispatch } = await import('./whatsappService.ts');
+  const { durableStorage } = await import('../db/storage.ts');
+
+  // Create a draft
+  const draft = durableStorage.addWhatsAppMessage({
+    id: 'wa-test-' + Date.now(),
+    contactName: 'Zainab',
+    contactIdentifier: '+923001234567',
+    messageText: 'Meeting confirmed for 4pm',
+    status: 'pending',
+    userConfirmed: false,
+    isSensitive: false,
+    createdAt: new Date().toISOString(),
+  });
+
+  const prevToken = process.env.WHATSAPP_API_TOKEN;
+  const prevPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  try {
+    // Unset WhatsApp credentials to verify truthful fallback behavior
+    delete process.env.WHATSAPP_API_TOKEN;
+    delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    const result = await processWhatsAppDispatch(draft.id, true);
+
+    // MUST NOT claim 'sent' or 'delivered' when credentials are missing!
+    assert.notEqual(result.deliveryStatus, 'sent', 'Must not falsely claim message was sent without credentials');
+    assert.equal(result.deliveryStatus, 'draft_ready', 'Truthful status must report draft_ready');
+    assert.equal(result.provider, 'local_store', 'Provider must report local_store');
+    assert.ok(result.notice.includes('credentials not configured'), 'Notice must explain provider requirement');
+  } finally {
+    if (prevToken) process.env.WHATSAPP_API_TOKEN = prevToken;
+    if (prevPhoneId) process.env.WHATSAPP_PHONE_NUMBER_ID = prevPhoneId;
   }
 });
 

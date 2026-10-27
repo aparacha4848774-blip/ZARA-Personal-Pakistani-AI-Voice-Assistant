@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-27T12:15:47.905Z",
+  "lastUpdated": "2026-10-27T14:43:43.488Z",
   "settings": {
     "ownerName": "Boss",
     "preferredLanguage": "roman_urdu",
@@ -15,6 +15,16 @@
     "selectedSpeakerDevice": "default"
   },
   "memories": [
+    {
+      "category": "preference",
+      "key": "probe_pref",
+      "value": "karahi",
+      "importance": "medium",
+      "userApproved": true,
+      "isActive": true,
+      "id": "mem-1793112207959-jgai",
+      "createdAt": "2026-10-27T14:43:27.959Z"
+    },
     {
       "id": "mem-1",
       "category": "preference",
@@ -48,6 +58,64 @@
   ],
   "whatsappMessages": [
     {
+      "id": "wa-test-1793112223338",
+      "contactName": "Zainab",
+      "contactIdentifier": "+923001234567",
+      "messageText": "Meeting confirmed for 4pm",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "createdAt": "2026-10-27T14:43:43.338Z",
+      "sentAt": "2026-10-27T14:43:43.338Z"
+    },
+    {
+      "id": "wa-test-1793112187699",
+      "contactName": "Zainab",
+      "contactIdentifier": "+923001234567",
+      "messageText": "Meeting confirmed for 4pm",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "createdAt": "2026-10-27T14:43:07.699Z",
+      "sentAt": "2026-10-27T14:43:07.700Z"
+    },
+    {
+      "contactName": "Zainab",
+      "contactIdentifier": "+923001234567",
+      "messageText": "Meeting confirmed for 4pm",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "sentAt": "2026-10-27T14:42:23.640Z"
+    },
+    {
+      "contactName": "Zainab",
+      "contactIdentifier": "+923001234567",
+      "messageText": "Meeting confirmed for 4pm",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "sentAt": "2026-10-27T14:42:03.426Z"
+    },
+    {
+      "contactName": "Zainab",
+      "contactIdentifier": "+923001234567",
+      "messageText": "Meeting confirmed for 4pm",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "sentAt": "2026-10-27T14:41:30.118Z"
+    },
+    {
+      "contactName": "Zainab",
+      "contactIdentifier": "+923001234567",
+      "messageText": "Meeting confirmed for 4pm",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "sentAt": "2026-10-27T14:40:45.309Z"
+    },
+    {
       "id": "wa-1",
       "contactName": "Hamza",
       "contactIdentifier": "+92 300 1234567",
@@ -71,6 +139,126 @@
     }
   ],
   "automationHistory": [
+    {
+      "id": "job-run-1793112223183",
+      "jobId": "nonexistent-job-xyz",
+      "name": "nonexistent-job-xyz",
+      "startedAt": "2026-10-27T14:43:43.183Z",
+      "completedAt": "2026-10-27T14:43:43.183Z",
+      "durationMs": 0,
+      "status": "failed",
+      "error": "Job \"nonexistent-job-xyz\" is not a registered automation task. Available jobs: backup-memories, cleanup-temp-projects, system-diagnostics, export-data-summary"
+    },
+    {
+      "id": "job-run-1793112223183",
+      "jobId": "system-diagnostics",
+      "name": "Full Health & Diagnostic Scan",
+      "startedAt": "2026-10-27T14:43:43.179Z",
+      "completedAt": "2026-10-27T14:43:43.183Z",
+      "durationMs": 4,
+      "status": "completed",
+      "resultSummary": "Health scan complete: Node RSS 153MB, 4 memories intact, Preferred Lang: roman_urdu"
+    },
+    {
+      "id": "job-run-1793112187568",
+      "jobId": "nonexistent-job-xyz",
+      "name": "nonexistent-job-xyz",
+      "startedAt": "2026-10-27T14:43:07.568Z",
+      "completedAt": "2026-10-27T14:43:07.568Z",
+      "durationMs": 0,
+      "status": "failed",
+      "error": "Job \"nonexistent-job-xyz\" is not a registered automation task. Available jobs: backup-memories, cleanup-temp-projects, system-diagnostics, export-data-summary"
+    },
+    {
+      "id": "job-run-1793112187567",
+      "jobId": "system-diagnostics",
+      "name": "Full Health & Diagnostic Scan",
+      "startedAt": "2026-10-27T14:43:07.563Z",
+      "completedAt": "2026-10-27T14:43:07.567Z",
+      "durationMs": 4,
+      "status": "completed",
+      "resultSummary": "Health scan complete: Node RSS 189MB, 3 memories intact, Preferred Lang: roman_urdu"
+    },
+    {
+      "id": "job-run-1793112143498",
+      "jobId": "nonexistent-job-xyz",
+      "name": "nonexistent-job-xyz",
+      "startedAt": "2026-10-27T14:42:23.498Z",
+      "completedAt": "2026-10-27T14:42:23.498Z",
+      "durationMs": 0,
+      "status": "failed",
+      "error": "Job \"nonexistent-job-xyz\" is not a registered automation task. Available jobs: backup-memories, cleanup-temp-projects, system-diagnostics, export-data-summary"
+    },
+    {
+      "id": "job-run-1793112143498",
+      "jobId": "system-diagnostics",
+      "name": "Full Health & Diagnostic Scan",
+      "startedAt": "2026-10-27T14:42:23.493Z",
+      "completedAt": "2026-10-27T14:42:23.498Z",
+      "durationMs": 5,
+      "status": "completed",
+      "resultSummary": "Health scan complete: Node RSS 174MB, 3 memories intact, Preferred Lang: roman_urdu"
+    },
+    {
+      "id": "job-run-1793112123392",
+      "jobId": "nonexistent-job-xyz",
+      "name": "nonexistent-job-xyz",
+      "startedAt": "2026-10-27T14:42:03.392Z",
+      "completedAt": "2026-10-27T14:42:03.392Z",
+      "durationMs": 0,
+      "status": "failed",
+      "error": "Job \"nonexistent-job-xyz\" is not a registered automation task. Available jobs: backup-memories, cleanup-temp-projects, system-diagnostics, export-data-summary"
+    },
+    {
+      "id": "job-run-1793112123392",
+      "jobId": "system-diagnostics",
+      "name": "Full Health & Diagnostic Scan",
+      "startedAt": "2026-10-27T14:42:03.388Z",
+      "completedAt": "2026-10-27T14:42:03.392Z",
+      "durationMs": 4,
+      "status": "completed",
+      "resultSummary": "Health scan complete: Node RSS 185MB, 3 memories intact, Preferred Lang: roman_urdu"
+    },
+    {
+      "id": "job-run-1793112090071",
+      "jobId": "nonexistent-job-xyz",
+      "name": "nonexistent-job-xyz",
+      "startedAt": "2026-10-27T14:41:30.071Z",
+      "completedAt": "2026-10-27T14:41:30.071Z",
+      "durationMs": 0,
+      "status": "failed",
+      "error": "Job \"nonexistent-job-xyz\" is not a registered automation task. Available jobs: backup-memories, cleanup-temp-projects, system-diagnostics, export-data-summary"
+    },
+    {
+      "id": "job-run-1793112090071",
+      "jobId": "system-diagnostics",
+      "name": "Full Health & Diagnostic Scan",
+      "startedAt": "2026-10-27T14:41:30.066Z",
+      "completedAt": "2026-10-27T14:41:30.071Z",
+      "durationMs": 5,
+      "status": "completed",
+      "resultSummary": "Health scan complete: Node RSS 185MB, 3 memories intact, Preferred Lang: roman_urdu"
+    },
+    {
+      "id": "job-run-1793112045280",
+      "jobId": "nonexistent-job-xyz",
+      "name": "nonexistent-job-xyz",
+      "startedAt": "2026-10-27T14:40:45.280Z",
+      "completedAt": "2026-10-27T14:40:45.280Z",
+      "durationMs": 0,
+      "status": "failed",
+      "error": "Job \"nonexistent-job-xyz\" is not a registered automation task. Available jobs: backup-memories, cleanup-temp-projects, system-diagnostics, export-data-summary"
+    },
+    {
+      "id": "job-run-1793112045279",
+      "jobId": "system-diagnostics",
+      "name": "Full Health & Diagnostic Scan",
+      "startedAt": "2026-10-27T14:40:45.275Z",
+      "completedAt": "2026-10-27T14:40:45.279Z",
+      "durationMs": 4,
+      "status": "completed",
+      "resultSummary": "Health scan complete: Node RSS 191MB, 3 memories intact, Preferred Lang: roman_urdu"
+    },
     {
       "id": "job-run-1793103347755",
       "jobId": "nonexistent-job-xyz",

@@ -7,6 +7,7 @@ export interface MemoryRecord {
   userApproved: boolean;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export function sortMemoriesByImportance(memories: MemoryRecord[]): MemoryRecord[] {

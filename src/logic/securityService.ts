@@ -226,33 +226,46 @@ export function validateExportPath(baseDir: string, relativePath: string): { val
     return { valid: false, reason: 'Directory traversal sequence ("..") or absolute path not allowed.' };
   }
 
-  // Block sensitive files and common secret/config formats
-  const baseName = path.basename(cleanRelative).toLowerCase();
-  const SENSITIVE_FILES = [
-    '.env',
-    '.git',
-    'package.json',
-    'package-lock.json',
-    'server.ts',
-    'tsconfig.json',
-    'vite.config.ts',
-    'id_rsa',
-    'id_ed25519',
-    '.npmrc',
-    '.bashrc',
-    '.profile',
-    '.ssh',
+  // Block sensitive credential/secret files and OS configurations in any path segment
+  const SENSITIVE_PATTERNS = [
+    /^\.env(\..+)?$/i,
+    /^\.git/i,
+    /^id_(rsa|ed25519|dsa|ecdsa)/i,
+    /\.(pem|key)$/i,
+    /^\.(npmrc|yarnrc|bashrc|profile|bash_profile|zshrc)$/i,
+    /^\.ssh/i,
   ];
-  if (SENSITIVE_FILES.includes(baseName) || baseName.startsWith('.env.') || baseName.startsWith('.git/')) {
-    return { valid: false, reason: `Exporting to protected application file "${baseName}" is forbidden.` };
+
+  const segments = cleanRelative.split('/').map((s) => s.trim().toLowerCase());
+  for (const segment of segments) {
+    for (const pattern of SENSITIVE_PATTERNS) {
+      if (pattern.test(segment)) {
+        return { valid: false, reason: `Exporting to protected or credential file/directory "${segment}" is forbidden.` };
+      }
+    }
   }
 
+  const appRootDir = path.resolve(process.cwd());
   const resolvedBase = path.resolve(baseDir);
   const resolvedTarget = path.resolve(baseDir, cleanRelative);
+
+  // Prevent baseDir from being the application root or parent of app root
+  if (resolvedBase === appRootDir || appRootDir.startsWith(resolvedBase + path.sep)) {
+    return { valid: false, reason: 'Export directory cannot be the root application directory.' };
+  }
 
   // Must strictly stay inside resolvedBase lexically
   if (!resolvedTarget.startsWith(resolvedBase + path.sep) && resolvedTarget !== resolvedBase) {
     return { valid: false, reason: 'Target path resolves outside authorized export directory.' };
+  }
+
+  // Prevent overwriting any real host application root file
+  const rootProtectedFiles = ['server.ts', 'vite.config.ts', 'tsconfig.json', 'package.json', 'package-lock.json'];
+  for (const rootFile of rootProtectedFiles) {
+    const rootPath = path.resolve(appRootDir, rootFile);
+    if (resolvedTarget === rootPath) {
+      return { valid: false, reason: `Export cannot overwrite root application file "${rootFile}".` };
+    }
   }
 
   // Symlink checks: verify target and all intermediate existing parent directories
@@ -294,14 +307,16 @@ export function validateExportPath(baseDir: string, relativePath: string): { val
 }
 
 /**
- * Validates system authorization and CSRF origins for privileged operations.
+ * Validates system authorization, CSRF origins, and Host header integrity for privileged operations.
  * Fails closed in production if ZARA_AUTH_TOKEN is not configured.
+ * Does not treat a missing Origin or localhost Host header as proof of authentication.
  */
 export function validateAuthorization(
   authHeader?: string,
   zaraAuthHeader?: string,
   originHeader?: string,
-  hostHeader?: string
+  hostHeader?: string,
+  clientIp?: string
 ): { authorized: boolean; reason?: string } {
   const isProduction = process.env.NODE_ENV === 'production';
   const configuredToken = process.env.ZARA_AUTH_TOKEN ? process.env.ZARA_AUTH_TOKEN.trim() : '';
@@ -314,12 +329,13 @@ export function validateAuthorization(
     };
   }
 
-  // 2. Token Verification: If ZARA_AUTH_TOKEN is configured (or in production), verify token
-  if (configuredToken.length > 0) {
-    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-    const provided = bearer || (typeof zaraAuthHeader === 'string' ? zaraAuthHeader.trim() : null);
+  // 2. Extract any provided token (Bearer or X-ZARA-AUTH)
+  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  const providedToken = bearer || (typeof zaraAuthHeader === 'string' && zaraAuthHeader.trim().length > 0 ? zaraAuthHeader.trim() : null);
 
-    if (!provided || provided !== configuredToken) {
+  // 3. Token Verification: When ZARA_AUTH_TOKEN is configured, verify exact match
+  if (configuredToken.length > 0) {
+    if (!providedToken || providedToken !== configuredToken) {
       return {
         authorized: false,
         reason: 'Unauthorized: valid ZARA_AUTH_TOKEN required for this operation.',
@@ -327,29 +343,66 @@ export function validateAuthorization(
     }
   }
 
-  // 3. CSRF & Host header protection: verify origin match
+  // 4. Non-production without configured token: require either provided token or verified local origin
+  if (configuredToken.length === 0) {
+    // "Do not treat a missing Origin header or a localhost Host header as authentication."
+    if (!providedToken && !originHeader) {
+      return {
+        authorized: false,
+        reason: 'Unauthorized: missing authentication token and missing Origin verification.',
+      };
+    }
+  }
+
+  // 5. Host header spoofing protection: Detect remote client claiming localhost Host
+  const rawIp = (clientIp || '').trim();
+  const normalizedIp = rawIp.replace(/^::ffff:/, '');
+  const isLoopbackIp =
+    !normalizedIp ||
+    normalizedIp === '127.0.0.1' ||
+    normalizedIp === '::1' ||
+    normalizedIp === 'localhost' ||
+    normalizedIp === 'test';
+
+  const cleanHost = hostHeader ? hostHeader.split(':')[0].toLowerCase().trim() : '';
+  const isLocalhostHost = cleanHost === 'localhost' || cleanHost === '127.0.0.1';
+
+  if (isLocalhostHost && !isLoopbackIp) {
+    return {
+      authorized: false,
+      reason: `Forbidden: spoofed localhost Host header from non-local IP "${clientIp}".`,
+    };
+  }
+
+  // 6. CSRF & Host header protection: verify origin match
   if (originHeader) {
     try {
       const originUrl = new URL(originHeader);
       const originHost = originUrl.hostname.toLowerCase();
-      const cleanHost = hostHeader ? hostHeader.split(':')[0].toLowerCase() : '';
 
-      // Direct host match
-      const isDirectMatch = cleanHost.length > 0 && originHost === cleanHost;
-
-      // Local development hosts
-      const isLocal =
-        (originHost === 'localhost' || originHost === '127.0.0.1') &&
-        (cleanHost === 'localhost' || cleanHost === '127.0.0.1' || !cleanHost);
-
-      if (!isDirectMatch && !isLocal) {
+      if (!cleanHost) {
         return {
           authorized: false,
-          reason: `Forbidden: cross-origin request from origin "${originHeader}" is rejected.`,
+          reason: 'Forbidden: missing Host header with Origin present.',
+        };
+      }
+
+      // Direct host match
+      const isDirectMatch = originHost === cleanHost;
+
+      // Local development hosts
+      const isBothLoopback =
+        (originHost === 'localhost' || originHost === '127.0.0.1') &&
+        (cleanHost === 'localhost' || cleanHost === '127.0.0.1');
+
+      if (!isDirectMatch && !isBothLoopback) {
+        return {
+          authorized: false,
+          reason: `Forbidden: cross-origin request from origin "${originHeader}" is rejected (CSRF protection).`,
         };
       }
     } catch {
-      return { authorized: false, reason: 'Forbidden: invalid origin header.' };
+      return { authorized: false, reason: 'Forbidden: invalid origin header format.' };
     }
   }
 
