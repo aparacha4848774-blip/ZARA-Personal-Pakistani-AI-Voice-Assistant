@@ -1045,7 +1045,7 @@ app.post('/api/automation/run', requireAuthorization, async (req: Request, res: 
 // Hardened Laptop & Desktop Control Endpoints
 // Validates targets, URLs, apps, file permissions, and confirms operations
 // -------------------------------------------------------------
-app.get('/api/system/status', (_req: Request, res: Response) => {
+app.get('/api/system/status', requireAuthorization, (_req: Request, res: Response) => {
   const settings = durableStorage.getSettings();
   res.json({
     platform: process.platform,
@@ -1059,7 +1059,7 @@ app.get('/api/system/status', (_req: Request, res: Response) => {
   });
 });
 
-app.get('/api/system/files/browse', (req: Request, res: Response) => {
+app.get('/api/system/files/browse', requireAuthorization, (req: Request, res: Response) => {
   const folder = (req.query.folder as string) || 'Downloads';
   const filtered = laptopState.simulatedFiles.filter((f) =>
     f.path.toLowerCase().startsWith(folder.toLowerCase())
@@ -1071,7 +1071,7 @@ app.get('/api/system/files/browse', (req: Request, res: Response) => {
   });
 });
 
-app.get('/api/system/files/search', (req: Request, res: Response) => {
+app.get('/api/system/files/search', requireAuthorization, (req: Request, res: Response) => {
   const query = ((req.query.query as string) || '').toLowerCase().trim();
   if (!query) {
     return res.json({ query, results: [] });
