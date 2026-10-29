@@ -1,42 +1,50 @@
 /**
  * Centralized authenticated API Client for ZARA.
  * Handles authentication headers, tokens, and error handling.
+ *
+ * Security note: authentication tokens must not be accepted from URL
+ * parameters or Vite build-time environment variables. VITE_* values are
+ * included in client-side bundles and are not secrets.
  */
 
 export function getStoredAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
 
-  // 1. Check URL query parameters for token handoff (?token=... or ?auth_token=...)
+  // Remove legacy token parameters from the address bar without using them.
+  // This reduces accidental exposure if an old token-handoff URL is opened.
   try {
-    const params = new URLSearchParams(window.location.search);
-    const queryToken = params.get('token') || params.get('auth_token') || params.get('zara_token');
-    if (queryToken && queryToken.trim()) {
-      localStorage.setItem('zara_auth_token', queryToken.trim());
-      // Clean up URL without reload
-      const cleanUrl = window.location.pathname + window.location.hash;
+    const url = new URL(window.location.href);
+    let changed = false;
+
+    for (const key of ['token', 'auth_token', 'zara_token']) {
+      if (url.searchParams.has(key)) {
+        url.searchParams.delete(key);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      const cleanUrl = url.pathname + url.search + url.hash;
       window.history.replaceState({}, document.title, cleanUrl);
-      return queryToken.trim();
     }
   } catch {
-    // Ignore URL errors
+    // Ignore URL cleanup errors; never use URL tokens for authentication.
   }
 
-  // 2. Check localStorage
+  // Backward-compatible token lookup for existing sign-in flows.
+  // Prefer a server-managed HttpOnly, Secure, SameSite cookie in a future
+  // migration so JavaScript cannot read the session token.
   try {
     const stored = localStorage.getItem('zara_auth_token');
     if (stored && stored.trim()) {
       return stored.trim();
     }
   } catch {
-    // Ignore localStorage errors
+    // Ignore storage errors.
   }
 
-  // 3. Check Vite build-time environment variable
-  const envToken = (import.meta as any).env?.VITE_ZARA_AUTH_TOKEN;
-  if (typeof envToken === 'string' && envToken.trim()) {
-    return envToken.trim();
-  }
-
+  // Do not read VITE_ZARA_AUTH_TOKEN here: Vite exposes VITE_* values
+  // to browser code, so they must never contain authentication secrets.
   return null;
 }
 
@@ -49,14 +57,13 @@ export function setStoredAuthToken(token: string | null): void {
       localStorage.removeItem('zara_auth_token');
     }
   } catch {
-    // Ignore storage errors
+    // Ignore storage errors.
   }
 }
 
 /**
  * Authenticated fetch wrapper.
- * Automatically attaches Authorization and X-ZARA-AUTH headers
- * and ensures same-origin credentials are sent.
+ * Automatically attaches Authorization and X-ZARA-AUTH headers.
  */
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const token = getStoredAuthToken();
