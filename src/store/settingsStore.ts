@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ZaraSettings } from '../types/zara.types.ts';
+import { apiFetch } from '../utils/apiClient.ts';
 
 interface SettingsStoreState {
   settings: ZaraSettings;
@@ -27,7 +28,7 @@ export const useSettingsStore = create<SettingsStoreState>((set) => ({
   fetchSettings: async () => {
     try {
       set({ isLoading: true });
-      const res = await fetch('/api/settings');
+      const res = await apiFetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
         if (data.settings) {
@@ -47,7 +48,7 @@ export const useSettingsStore = create<SettingsStoreState>((set) => ({
     }));
 
     try {
-      await fetch(`/api/settings/${String(key)}`, {
+      await apiFetch(`/api/settings/${String(key)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),

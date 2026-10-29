@@ -6,6 +6,7 @@ import {
   ScreenshotRecord,
   ActionConfirmationStatus,
 } from '../types/laptopControl.types.ts';
+import { apiFetch } from '../utils/apiClient.ts';
 
 interface LaptopControlState {
   pendingAction: LaptopAction | null;
@@ -104,7 +105,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
     set({ pendingAction: actionToRun, isExecuting: true });
 
     try {
-      const res = await fetch('/api/system/control/execute', {
+      const res = await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(actionToRun),
@@ -185,7 +186,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
 
     try {
       set({ isExecuting: true });
-      const res = await fetch('/api/system/control/execute', {
+      const res = await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(action),
@@ -213,7 +214,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
     const clamped = Math.max(0, Math.min(100, Math.round(vol)));
     set({ systemVolume: clamped, isMuted: clamped === 0 });
     try {
-      await fetch('/api/system/control/execute', {
+      await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +236,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
 
   browseDirectory: async (folderName = 'Downloads') => {
     try {
-      const res = await fetch(`/api/system/files/browse?folder=${encodeURIComponent(folderName)}`);
+      const res = await apiFetch(`/api/system/files/browse?folder=${encodeURIComponent(folderName)}`);
       if (res.ok) {
         const data = await res.json();
         set({
@@ -255,7 +256,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
     }
     set({ isSearching: true });
     try {
-      const res = await fetch(`/api/system/files/search?query=${encodeURIComponent(query)}`);
+      const res = await apiFetch(`/api/system/files/search?query=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
         set({ searchResults: data.results || [], isSearching: false });
@@ -267,7 +268,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
 
   takeScreenshot: async () => {
     try {
-      const res = await fetch('/api/system/control/execute', {
+      const res = await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -291,7 +292,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
 
   launchApp: async (appName: string) => {
     try {
-      const res = await fetch('/api/system/control/execute', {
+      const res = await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -314,7 +315,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
 
   closeApp: async (appName: string) => {
     try {
-      const res = await fetch('/api/system/control/execute', {
+      const res = await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -337,7 +338,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
 
   openUrl: async (url: string) => {
     try {
-      const res = await fetch('/api/system/control/execute', {
+      const res = await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -355,7 +356,7 @@ export const useLaptopControlStore = create<LaptopControlState>((set, get) => ({
 
   sendWhatsAppDirect: async (contact: string, message: string) => {
     try {
-      const res = await fetch('/api/system/control/execute', {
+      const res = await apiFetch('/api/system/control/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

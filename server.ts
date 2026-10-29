@@ -90,8 +90,20 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 // -------------------------------------------------------------
 function requireAuthorization(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
-  const zaraAuth = req.headers['x-zara-auth'] as string | undefined;
-  const origin = req.headers.origin;
+  const zaraAuth =
+    (req.headers['x-zara-auth'] as string | undefined) ||
+    (req.headers['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].slice(7).trim() : undefined);
+
+  let origin = req.headers.origin as string | undefined;
+  if (!origin && req.headers.referer) {
+    try {
+      const refUrl = new URL(req.headers.referer);
+      origin = refUrl.origin;
+    } catch {
+      // ignore invalid referer URL
+    }
+  }
+
   const host = req.get('host');
   const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
 
@@ -103,6 +115,56 @@ function requireAuthorization(req: Request, res: Response, next: NextFunction) {
     });
   }
   next();
+}
+
+// Chat-specific rate limiting (max 30 requests per minute per IP)
+const chatRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const CHAT_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_CHAT_REQUESTS_PER_WINDOW = 30;
+
+function checkChatAbuse(req: Request): { allowed: boolean; status?: number; error?: string } {
+  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  const now = Date.now();
+  const entry = chatRateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    chatRateLimitMap.set(ip, { count: 1, resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS });
+  } else {
+    entry.count += 1;
+    if (entry.count > MAX_CHAT_REQUESTS_PER_WINDOW) {
+      return {
+        allowed: false,
+        status: 429,
+        error: 'Too many chat requests. Please wait a moment before sending another message.',
+      };
+    }
+  }
+
+  // Cross-origin CSRF protection for chat
+  const origin = req.headers.origin;
+  const host = req.get('host');
+  if (origin && host) {
+    try {
+      const originHost = new URL(origin).hostname.toLowerCase();
+      const cleanHost = host.split(':')[0].toLowerCase().trim();
+      const isDirectMatch = originHost === cleanHost;
+      const isBothLoopback =
+        (originHost === 'localhost' || originHost === '127.0.0.1') &&
+        (cleanHost === 'localhost' || cleanHost === '127.0.0.1');
+
+      if (!isDirectMatch && !isBothLoopback) {
+        return {
+          allowed: false,
+          status: 403,
+          error: 'Forbidden: cross-origin chat request blocked (CSRF protection).',
+        };
+      }
+    } catch {
+      return { allowed: false, status: 403, error: 'Forbidden: invalid origin header.' };
+    }
+  }
+
+  return { allowed: true };
 }
 
 // -------------------------------------------------------------
@@ -217,7 +279,7 @@ app.get('/api/quota/status', (_req: Request, res: Response) => {
   res.json(quotaCircuitBreaker.getStatus());
 });
 
-app.post('/api/quota/reset', (_req: Request, res: Response) => {
+app.post('/api/quota/reset', requireAuthorization, (_req: Request, res: Response) => {
   quotaCircuitBreaker.reset();
   res.json({ success: true, status: quotaCircuitBreaker.getStatus() });
 });
@@ -229,7 +291,7 @@ app.get('/api/models', (_req: Request, res: Response) => {
 
 // Real AI Provider Connectivity Test
 // Never returns fake success: tests live authorized request, reporting genuine provider state.
-app.post('/api/models/test', async (req: Request, res: Response) => {
+app.post('/api/models/test', requireAuthorization, async (req: Request, res: Response) => {
   const { modelId } = req.body;
   const targetModel =
     modelId && !modelId.includes('2.0') && !modelId.includes('1.5') && !modelId.includes('3.5')
@@ -349,6 +411,11 @@ app.post('/api/models/test', async (req: Request, res: Response) => {
 
 // Chat endpoint (ZARA Pakistani Best-Friend Persona + Real Gemini API + Durable Memories)
 app.post('/api/chat', async (req: Request, res: Response) => {
+  const abuseCheck = checkChatAbuse(req);
+  if (!abuseCheck.allowed) {
+    return res.status(abuseCheck.status || 429).json({ error: abuseCheck.error });
+  }
+
   const start = Date.now();
   try {
     const {
@@ -360,8 +427,16 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       modelId,
     } = req.body || {};
 
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ error: 'Message text is required.' });
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Message text is required and cannot be empty.' });
+    }
+
+    if (message.length > 4000) {
+      return res.status(400).json({ error: 'Message exceeds maximum permitted length of 4000 characters.' });
+    }
+
+    if (!Array.isArray(conversationHistory) || conversationHistory.length > 100) {
+      return res.status(400).json({ error: 'Invalid conversationHistory format or limit exceeded.' });
     }
 
     const memories = durableStorage.getMemories();
@@ -644,7 +719,7 @@ app.post('/api/voice/tts', async (req: Request, res: Response) => {
 // -------------------------------------------------------------
 // Durable Memory Endpoints
 // -------------------------------------------------------------
-app.get(['/api/memory', '/api/memories'], (_req: Request, res: Response) => {
+app.get(['/api/memory', '/api/memories'], requireAuthorization, (_req: Request, res: Response) => {
   res.json({ memories: durableStorage.getMemories() });
 });
 
@@ -694,7 +769,7 @@ app.delete(['/api/memory', '/api/memories'], requireAuthorization, (_req: Reques
 // -------------------------------------------------------------
 // Durable WhatsApp Endpoints (Truthful Delivery Reporting)
 // -------------------------------------------------------------
-app.get('/api/whatsapp/messages', (_req: Request, res: Response) => {
+app.get('/api/whatsapp/messages', requireAuthorization, (_req: Request, res: Response) => {
   res.json({ messages: durableStorage.getWhatsAppMessages() });
 });
 
@@ -733,7 +808,7 @@ app.post('/api/whatsapp/send', requireAuthorization, async (req: Request, res: R
 // -------------------------------------------------------------
 // Durable Settings Endpoints
 // -------------------------------------------------------------
-app.get('/api/settings', (_req: Request, res: Response) => {
+app.get('/api/settings', requireAuthorization, (_req: Request, res: Response) => {
   res.json({ settings: durableStorage.getSettings() });
 });
 
@@ -765,7 +840,7 @@ app.post('/api/settings', requireAuthorization, (req: Request, res: Response) =>
 });
 
 // Usage statistics
-app.get('/api/usage', (_req: Request, res: Response) => {
+app.get('/api/usage', requireAuthorization, (_req: Request, res: Response) => {
   res.json({ usage: durableStorage.getUsage() });
 });
 

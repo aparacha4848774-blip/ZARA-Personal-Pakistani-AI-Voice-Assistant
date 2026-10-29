@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, Coins, Zap, Clock, RefreshCw } from 'lucide-react';
+import { apiFetch } from '../../utils/apiClient.ts';
 
 export const UsageMonitor: React.FC = () => {
   const [usage, setUsage] = useState({
@@ -12,7 +13,7 @@ export const UsageMonitor: React.FC = () => {
 
   const fetchUsage = async () => {
     try {
-      const res = await fetch('/api/usage');
+      const res = await apiFetch('/api/usage');
       if (res.ok) {
         const data = await res.json();
         if (data.usage) setUsage(data.usage);

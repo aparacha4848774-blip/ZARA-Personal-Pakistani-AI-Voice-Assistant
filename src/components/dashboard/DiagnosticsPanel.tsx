@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Activity, CheckCircle2, XCircle, RefreshCw, Play, ShieldAlert } from 'lucide-react';
 import { speechRecognitionEngine } from '../../engines/SpeechRecognitionEngine.ts';
 import { voicePlaybackEngine } from '../../engines/VoicePlaybackEngine.ts';
+import { apiFetch } from '../../utils/apiClient.ts';
 
 interface DiagnosticItem {
   id: string;
@@ -62,7 +63,7 @@ export const DiagnosticsPanel: React.FC = () => {
     let serverOk = false;
     let geminiOk = false;
     try {
-      const res = await fetch('/api/health');
+      const res = await apiFetch('/api/health');
       if (res.ok) {
         const data = await res.json();
         serverOk = data.status === 'ok';
@@ -72,7 +73,7 @@ export const DiagnosticsPanel: React.FC = () => {
     }
 
     try {
-      const mRes = await fetch('/api/models/test', {
+      const mRes = await apiFetch('/api/models/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modelId: 'gemini-3.8-flash' }),

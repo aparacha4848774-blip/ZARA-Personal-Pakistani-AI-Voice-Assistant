@@ -15,6 +15,7 @@ import {
 } from '../logic/audioEchoLockout.ts';
 import { detectAdvancedIntent } from '../logic/worldClassAiEngine.ts';
 import { MessageAttachment } from '../types/zara.types.ts';
+import { apiFetch } from '../utils/apiClient.ts';
 
 interface PendingClarification {
   type:
@@ -329,7 +330,7 @@ class ConversationOrchestrator {
     if (advanced.intent === 'whatsapp_draft' && advanced.whatsappDraft) {
       const { contactName, messageText } = advanced.whatsappDraft;
       try {
-        await fetch('/api/whatsapp/draft', {
+        await apiFetch('/api/whatsapp/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -454,7 +455,7 @@ class ConversationOrchestrator {
     const waCheck = parseWhatsAppCommand(query);
     if (waCheck.isWhatsAppIntent && waCheck.contactName && waCheck.messageText) {
       try {
-        await fetch('/api/whatsapp/draft', {
+        await apiFetch('/api/whatsapp/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -480,7 +481,7 @@ class ConversationOrchestrator {
     const isEnglish = currentLang === 'english';
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -511,9 +512,14 @@ class ConversationOrchestrator {
           ? "Hey Boss, I didn't quite catch that, say it again!"
           : 'Arre Boss, kuch samajh nahi aaya, dobara bolo!');
 
-      // Update emotion
-      if (data.emotion) {
-        useEmotionStore.getState().setEmotion(data.emotion, data.intensity, data.confidence);
+      const assignedEmotion = data?.emotion || 'Confident';
+      const assignedIntensity = typeof data?.intensity === 'number' ? data.intensity : 80;
+      const assignedConfidence = data?.confidence || 'high';
+      const assignedModel = data?.modelUsed || 'gemini-3.8-flash';
+
+      // Update emotion safely
+      if (data?.emotion) {
+        useEmotionStore.getState().setEmotion(data.emotion, assignedIntensity, assignedConfidence);
       }
 
       // Add ZARA message to history
@@ -522,16 +528,16 @@ class ConversationOrchestrator {
         role: 'zara',
         content: replyText,
         language: currentLang,
-        emotion: data.emotion,
-        emotionIntensity: data.intensity,
-        confidenceLevel: data.confidence,
-        modelUsed: data.modelUsed,
-        tokenCount: data.tokensUsed,
-        isThinking: data.isThinking,
+        emotion: assignedEmotion,
+        emotionIntensity: assignedIntensity,
+        confidenceLevel: assignedConfidence,
+        modelUsed: assignedModel,
+        tokenCount: data?.tokensUsed || 0,
+        isThinking: Boolean(data?.isThinking),
       });
 
       // Speak response
-      this.speakReply(replyText, data.emotion, data.intensity, data.confidence, data.modelUsed);
+      this.speakReply(replyText, assignedEmotion, assignedIntensity, assignedConfidence, assignedModel);
     } catch (err: any) {
       console.error('Chat processing error:', err);
       const fallbackReply = isEnglish
@@ -572,7 +578,7 @@ class ConversationOrchestrator {
       : 'Warm, friendly real Pakistani female best friend, natural Urdu and Roman Urdu conversational pronunciation, authentic Pakistani dostana accent and cadence, casual and expressive';
 
     // Request Gemini TTS with Kore voice for natural delivery
-    fetch('/api/voice/tts', {
+    apiFetch('/api/voice/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

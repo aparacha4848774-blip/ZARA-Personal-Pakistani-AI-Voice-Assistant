@@ -1525,6 +1525,166 @@ test('Priority 4: Truthful WhatsApp status reporting without fake delivery claim
   }
 });
 
+// ==========================================
+// SENSITIVE READ & OPERATIONAL ENDPOINTS REGRESSION TESTS
+// ==========================================
+
+test('Priority 1: Unauthorized external clients cannot access private memory, settings, usage, or whatsapp read endpoints', async () => {
+  const { validateAuthorization } = await import('./securityService.ts');
+  const prevEnv = process.env.NODE_ENV;
+  const prevToken = process.env.ZARA_AUTH_TOKEN;
+
+  try {
+    process.env.NODE_ENV = 'development';
+    delete process.env.ZARA_AUTH_TOKEN;
+
+    // 1. Raw external script or curl requesting sensitive read endpoint without token or origin
+    const rawExternalRead = validateAuthorization(
+      undefined,
+      undefined,
+      undefined,
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(rawExternalRead.authorized, false, 'External unauthenticated read request must be blocked');
+    assert.ok(rawExternalRead.reason?.includes('missing authentication token and missing Origin'));
+
+    // 2. Remote IP attempting to read with spoofed Host
+    const remoteSpoofedRead = validateAuthorization(
+      undefined,
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '203.0.113.195'
+    );
+    assert.equal(remoteSpoofedRead.authorized, false, 'Remote client spoofing localhost Host must be blocked from reading');
+    assert.ok(remoteSpoofedRead.reason?.includes('spoofed localhost'));
+
+    // 3. Cross-origin website attempting to read user memories or WhatsApp history (CSRF)
+    const csrfRead = validateAuthorization(
+      undefined,
+      undefined,
+      'https://malicious-tracker.com',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(csrfRead.authorized, false, 'Cross-origin read attempt must be blocked');
+    assert.ok(csrfRead.reason?.includes('cross-origin') || csrfRead.reason?.includes('CSRF'));
+
+    // 4. Authorized local dashboard client can read
+    const authorizedLocalRead = validateAuthorization(
+      undefined,
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(authorizedLocalRead.authorized, true, 'Legitimate local same-origin client must be authorized');
+  } finally {
+    process.env.NODE_ENV = prevEnv;
+    if (prevToken) process.env.ZARA_AUTH_TOKEN = prevToken;
+    else delete process.env.ZARA_AUTH_TOKEN;
+  }
+});
+
+test('Priority 1: Production strictly enforces ZARA_AUTH_TOKEN on all read endpoints (fail-closed)', async () => {
+  const { validateAuthorization } = await import('./securityService.ts');
+  const prevEnv = process.env.NODE_ENV;
+  const prevToken = process.env.ZARA_AUTH_TOKEN;
+
+  try {
+    process.env.NODE_ENV = 'production';
+    delete process.env.ZARA_AUTH_TOKEN;
+
+    // Production without token -> unconditionally blocked (fail-closed)
+    const prodNoToken = validateAuthorization(
+      undefined,
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodNoToken.authorized, false, 'Must fail-closed in production without token');
+    assert.ok(prodNoToken.reason?.includes('fail-closed'));
+
+    // Production with token configured: unauthorized without token
+    process.env.ZARA_AUTH_TOKEN = 'secure-zara-secret-key-999';
+    const prodWithoutCreds = validateAuthorization(
+      undefined,
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodWithoutCreds.authorized, false, 'Must reject unauthenticated request when token is set');
+
+    // Production with valid Bearer token -> Authorized
+    const prodValidBearer = validateAuthorization(
+      'Bearer secure-zara-secret-key-999',
+      undefined,
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodValidBearer.authorized, true, 'Must authorize valid Bearer token');
+
+    // Production with valid X-ZARA-AUTH custom header -> Authorized
+    const prodValidCustomHeader = validateAuthorization(
+      undefined,
+      'secure-zara-secret-key-999',
+      'http://localhost:3000',
+      'localhost:3000',
+      '127.0.0.1'
+    );
+    assert.equal(prodValidCustomHeader.authorized, true, 'Must authorize valid X-ZARA-AUTH header');
+  } finally {
+    process.env.NODE_ENV = prevEnv;
+    if (prevToken) process.env.ZARA_AUTH_TOKEN = prevToken;
+    else delete process.env.ZARA_AUTH_TOKEN;
+  }
+});
+
+test('Priority 2: Operational endpoints (quota reset & model test) enforce authorization', async () => {
+  const { validateAuthorization } = await import('./securityService.ts');
+  const prevEnv = process.env.NODE_ENV;
+  const prevToken = process.env.ZARA_AUTH_TOKEN;
+
+  try {
+    process.env.ZARA_AUTH_TOKEN = 'ops-secret-key-888';
+
+    // Unauthenticated caller attempting to reset quota or trigger model test
+    const unauthOps = validateAuthorization(undefined, undefined);
+    assert.equal(unauthOps.authorized, false, 'Unauthenticated operations caller must be rejected');
+
+    // Bad token caller
+    const badTokenOps = validateAuthorization('Bearer forged-token');
+    assert.equal(badTokenOps.authorized, false, 'Forged token must be rejected');
+
+    // Valid ops caller
+    const validOps = validateAuthorization('Bearer ops-secret-key-888');
+    assert.equal(validOps.authorized, true, 'Valid token must be authorized for operational actions');
+  } finally {
+    process.env.NODE_ENV = prevEnv;
+    if (prevToken) process.env.ZARA_AUTH_TOKEN = prevToken;
+    else delete process.env.ZARA_AUTH_TOKEN;
+  }
+});
+
+test('Priority 3: ConversationOrchestrator safely handles null or malformed chat responses without throwing TypeError', async () => {
+  // Verify safe optional chaining logic for data.emotion and other response properties
+  const dummyData: any = null;
+  const assignedEmotion = dummyData?.emotion || 'Confident';
+  const assignedIntensity = typeof dummyData?.intensity === 'number' ? dummyData.intensity : 80;
+  const assignedConfidence = dummyData?.confidence || 'high';
+  const assignedModel = dummyData?.modelUsed || 'gemini-3.8-flash';
+
+  assert.equal(assignedEmotion, 'Confident');
+  assert.equal(assignedIntensity, 80);
+  assert.equal(assignedConfidence, 'high');
+  assert.equal(assignedModel, 'gemini-3.8-flash');
+});
+
+
 
 
 

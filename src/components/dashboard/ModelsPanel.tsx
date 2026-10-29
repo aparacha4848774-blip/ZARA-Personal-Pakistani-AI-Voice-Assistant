@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Cpu, CheckCircle2, AlertTriangle, RefreshCw, Zap, BrainCircuit, Activity } from 'lucide-react';
 import { GeminiModelConfig } from '../../types/zara.types.ts';
 import { DEFAULT_GEMINI_MODELS } from '../../config/models.config.ts';
+import { apiFetch } from '../../utils/apiClient.ts';
 
 export const ModelsPanel: React.FC = () => {
   const [models, setModels] = useState<GeminiModelConfig[]>(DEFAULT_GEMINI_MODELS);
@@ -9,7 +10,7 @@ export const ModelsPanel: React.FC = () => {
 
   const fetchModels = async () => {
     try {
-      const res = await fetch('/api/models');
+      const res = await apiFetch('/api/models');
       if (res.ok) {
         const data = await res.json();
         if (data.models) setModels(data.models);
@@ -26,7 +27,7 @@ export const ModelsPanel: React.FC = () => {
   const handleTestConnection = async (modelId: string) => {
     setTestingModel(modelId);
     try {
-      const res = await fetch('/api/models/test', {
+      const res = await apiFetch('/api/models/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modelId }),

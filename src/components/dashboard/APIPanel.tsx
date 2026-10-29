@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Key, ShieldCheck, CheckCircle2, AlertTriangle, RefreshCw, Server, Zap } from 'lucide-react';
+import { apiFetch } from '../../utils/apiClient.ts';
 
 export const APIPanel: React.FC = () => {
   const [testing, setTesting] = useState(false);
@@ -12,7 +13,7 @@ export const APIPanel: React.FC = () => {
   const runTest = async () => {
     setTesting(true);
     try {
-      const res = await fetch('/api/models/test', {
+      const res = await apiFetch('/api/models/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modelId: 'gemini-3.8-flash' }),

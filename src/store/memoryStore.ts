@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { MemoryEntry } from '../types/zara.types.ts';
+import { apiFetch } from '../utils/apiClient.ts';
 
 interface MemoryStoreState {
   memories: MemoryEntry[];
@@ -55,7 +56,7 @@ export const useMemoryStore = create<MemoryStoreState>((set, get) => ({
   fetchMemories: async () => {
     try {
       set({ isLoading: true });
-      const res = await fetch('/api/memory');
+      const res = await apiFetch('/api/memory');
       if (res.ok) {
         const data = await res.json();
         if (data.memories) {
@@ -79,7 +80,7 @@ export const useMemoryStore = create<MemoryStoreState>((set, get) => ({
     set((state) => ({ memories: [newEntry, ...state.memories] }));
 
     try {
-      await fetch('/api/memory', {
+      await apiFetch('/api/memory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),
@@ -95,7 +96,7 @@ export const useMemoryStore = create<MemoryStoreState>((set, get) => ({
     }));
 
     try {
-      await fetch(`/api/memory/${id}`, {
+      await apiFetch(`/api/memory/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -111,7 +112,7 @@ export const useMemoryStore = create<MemoryStoreState>((set, get) => ({
     }));
 
     try {
-      await fetch(`/api/memory/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/memory/${id}`, { method: 'DELETE' });
     } catch (e) {
       console.warn('Could not delete memory on backend:', e);
     }

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { WhatsAppMessage } from '../../types/zara.types.ts';
 import { orchestrator } from '../../engines/ConversationOrchestrator.ts';
+import { apiFetch } from '../../utils/apiClient.ts';
 
 const SAMPLE_CONTACTS = [
   { name: 'Hamza', phone: '+92 300 1234567', relation: 'Best Friend' },
@@ -29,7 +30,7 @@ export const WhatsAppCenter: React.FC = () => {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch('/api/whatsapp/messages');
+      const res = await apiFetch('/api/whatsapp/messages');
       if (res.ok) {
         const data = await res.json();
         if (data.messages) setMessages(data.messages);
@@ -49,7 +50,7 @@ export const WhatsAppCenter: React.FC = () => {
 
     try {
       const contactObj = SAMPLE_CONTACTS.find((c) => c.name === selectedContact);
-      const res = await fetch('/api/whatsapp/draft', {
+      const res = await apiFetch('/api/whatsapp/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -75,7 +76,7 @@ export const WhatsAppCenter: React.FC = () => {
 
     setTimeout(async () => {
       try {
-        const res = await fetch('/api/whatsapp/send', {
+        const res = await apiFetch('/api/whatsapp/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, confirmed }),
