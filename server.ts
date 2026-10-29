@@ -14,6 +14,8 @@ import {
   cleanResponseText,
   generateContextualDostanaFallback,
 } from './src/logic/conversationFormatter.ts';
+import { detectLanguage } from './src/logic/languageDetector.ts';
+
 import { durableStorage } from './src/db/storage.ts';
 import { quotaCircuitBreaker } from './src/logic/circuitBreaker.ts';
 import {
@@ -443,14 +445,47 @@ app.post('/api/chat', async (req: Request, res: Response) => {
     const settings = durableStorage.getSettings();
     const memoriesContext = formatMemoriesForPrompt(memories);
 
-    const activeLang = language || settings.preferredLanguage || 'roman_urdu';
+    const activeLang = detectLanguage(message, language || settings.preferredLanguage || 'roman_urdu');
     const isEnglish = activeLang === 'english';
+    const isUrduScript = activeLang === 'urdu';
 
     const useThinking = Boolean(highThinking || settings.highThinkingMode);
     const candidateModels = getCandidateModels(modelId, useThinking);
 
-    const systemInstruction = isEnglish
-      ? `
+    let systemInstruction = '';
+    if (isUrduScript) {
+      systemInstruction = `
+تم زارا (ZARA) ہو — میری پرسنل پاکستانی اے آئی وائس اسسٹنٹ اور حقیقی زندگی کی سچی دوست۔
+مجھے ہمیشہ "باس" (Boss) کہہ کر پکارو۔ کبھی "سر" (Sir) مت بولنا۔
+تمہارا نام صرف زارا (ZARA) ہے (کبھی "MJ" یا "میں ایم جے ہوں" مت کہنا)۔
+خالص، قدرتی اور باوقار پاکستانی اردو رسم الخط (Urdu script) اور لب و لہجے میں بات کرو۔
+
+کبھی مت بولنا — یہ الفاظ اور جملے سختی سے منع ہیں:
+- "سر" یا "Sir" (صرف "باس" کہنا ہے)
+- "MJ" یا "میں ایم جے ہوں" (تمہارا نام زارا ہے)
+- "حکم کریں"
+- "میں حاضر ہوں"
+- "اور کچھ باس؟"
+- "خدمت کے لیے تیار"
+- "دلچسپ بات ہے"
+- "بتائیں کیا پلان بنائیں"
+- "اگلا مرحلہ کیا ہے"
+
+براہِ راست اور مدلل جواب (پہلا اصول):
+- صارف جو سوال پوچھے — سیدھا، سچا، مکمل، بااعتماد اور درست جواب دو۔
+- اگر کوڈ مانگے — تو مکمل، کلین اور ورکنگ کوڈ دو۔
+- غیر متعلقہ یا بناوٹی باتیں مت کرو۔ ہر جواب معلوماتی، ذہین اور حقیقت پسندانہ ہو۔
+
+اندازِ گفتگو:
+سچی دوست کی طرح — شفیق، پُراعتماد، ذہین اور مہربان۔ اگر کوئی غلطی ہو تو فوراً تسلیم کرو۔
+
+فعال یاداشتیں (ACTIVE MEMORIES):
+${memoriesContext}
+
+موجودہ جذباتی سیاق و سباق: ${currentEmotion}
+`.trim();
+    } else if (isEnglish) {
+      systemInstruction = `
 You are ZARA — my personal Pakistani AI voice assistant and real life best friend.
 Always call me "Boss". NEVER call me "Sir".
 Your name is strictly ZARA (NEVER say MJ, never mention another assistant).
@@ -477,8 +512,9 @@ ACTIVE MEMORIES:
 ${memoriesContext}
 
 CURRENT EMOTIONAL CONTEXT: ${currentEmotion}
-`.trim()
-      : `
+`.trim();
+    } else {
+      systemInstruction = `
 Tum ZARA ho — meri personal Pakistani AI voice assistant aur real life best friend.
 Mujhe hamesha "Boss" keh kar pukaro. Kabhi "Sir" mat bolna.
 Tumhara naam sirf ZARA hai (kabhi "MJ" ya "Main MJ hun" mat kehna).
@@ -519,6 +555,7 @@ ${memoriesContext}
 
 CURRENT EMOTIONAL CONTEXT: ${currentEmotion}
 `.trim();
+    }
 
     // Check if circuit breaker is open or API is missing
     const shouldSkipLiveCall = !ai || quotaCircuitBreaker.shouldSkipApi();
@@ -564,12 +601,18 @@ CURRENT EMOTIONAL CONTEXT: ${currentEmotion}
           durableStorage.recordUsage(modelToTry, useThinking ? 'deep-chat' : 'fast-chat', inTokens, outTokens, latencyMs, 'success');
           quotaCircuitBreaker.recordSuccess();
 
+          const styleLabel = isUrduScript
+            ? 'Pakistani Urdu Script (اردو)'
+            : isEnglish
+            ? 'Pakistani English'
+            : 'Dostana & Real Pakistani Urdu';
+
           return res.json({
             response: responseText,
             emotion: inferred.emotion,
             intensity: inferred.intensity,
             confidence: inferred.confidence,
-            style: 'Dostana & Real Pakistani Urdu',
+            style: styleLabel,
             tokensUsed: inTokens + outTokens,
             modelUsed: modelToTry,
             isThinking: useThinking,
@@ -589,7 +632,7 @@ CURRENT EMOTIONAL CONTEXT: ${currentEmotion}
     }
 
     // Contextual Dostana Fallback (Guarantees responsive Pakistani conversational assistant even during outages)
-    const fallbackReply = generateContextualDostanaFallback(message, useThinking);
+    const fallbackReply = generateContextualDostanaFallback(message, useThinking, activeLang);
     const inferred = inferEmotionFromText(fallbackReply);
     const latencyMs = Date.now() - start;
     const approxTokens = Math.round((message.length + fallbackReply.length) / 3.5);
@@ -603,18 +646,25 @@ CURRENT EMOTIONAL CONTEXT: ${currentEmotion}
       'fallback'
     );
 
+    const styleLabel = isUrduScript
+      ? 'Pakistani Urdu Script (Contextual Engine)'
+      : isEnglish
+      ? 'Pakistani English (Contextual Engine)'
+      : 'Dostana & Real Pakistani Urdu (Contextual Engine)';
+
     return res.json({
       response: fallbackReply,
       emotion: inferred.emotion,
       intensity: inferred.intensity,
       confidence: inferred.confidence,
-      style: 'Dostana & Real Pakistani Urdu (Contextual Engine)',
+      style: styleLabel,
       tokensUsed: approxTokens,
       modelUsed: 'gemini-3.8-flash (Adaptive Dostana)',
       isThinking: useThinking,
       quotaExhausted: quotaCircuitBreaker.getStatus().isExhausted,
       latencyMs,
     });
+
   } catch (outerErr: any) {
     console.error('[ZARA /api/chat error]:', outerErr);
     return res.status(500).json({
@@ -636,15 +686,19 @@ app.post('/api/voice/tts', async (req: Request, res: Response) => {
   }
 
   const settings = durableStorage.getSettings();
-  const activeLang = language || settings.preferredLanguage || 'roman_urdu';
+  const activeLang = detectLanguage(text, language || settings.preferredLanguage || 'roman_urdu');
   const isEnglish = activeLang === 'english';
+  const isUrduScript = activeLang === 'urdu';
 
   const targetVoice = voiceConfig?.voiceName || (isEnglish ? 'Zephyr' : 'Kore');
   const naturalStyle =
     speechStyle ||
-    (isEnglish
+    (isUrduScript
+      ? 'Warm, friendly real Pakistani female best friend, authentic natural Urdu script pronunciation, fluent Pakistani dostana cadence, clear and expressive'
+      : isEnglish
       ? 'Warm, friendly real female best friend, natural conversational English pronunciation, casual and expressive'
       : 'Warm, friendly real Pakistani female best friend, natural Urdu and Roman Urdu conversational pronunciation, authentic Pakistani dostana accent and cadence, casual and expressive');
+
 
   const candidateModels = [
     'gemini-3.8-flash-lite-tts',

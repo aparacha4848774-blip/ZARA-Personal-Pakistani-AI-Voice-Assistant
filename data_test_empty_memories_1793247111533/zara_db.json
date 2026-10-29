@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-10-29T04:11:51.823Z",
+  "settings": {
+    "ownerName": "Boss",
+    "preferredLanguage": "roman_urdu",
+    "voiceSpeed": 1,
+    "voiceVolume": 1,
+    "wakeWordsEnabled": true,
+    "continuousConversation": true,
+    "sleepModeActive": false,
+    "highThinkingMode": false,
+    "silenceTimeoutMs": 1500,
+    "selectedMicDevice": "default",
+    "selectedSpeakerDevice": "default"
+  },
+  "memories": [],
+  "whatsappMessages": [
+    {
+      "id": "wa-1",
+      "contactName": "Hamza",
+      "contactIdentifier": "+92 300 1234567",
+      "messageText": "Main 5 minute mein aa raha hoon",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "sentAt": "2026-10-29T03:11:51.486Z",
+      "createdAt": "2026-10-29T03:11:51.486Z"
+    },
+    {
+      "id": "wa-2",
+      "contactName": "Ali Dev",
+      "contactIdentifier": "+92 321 9876543",
+      "messageText": "Project ready hai, check kar lo",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "sentAt": "2026-10-29T02:11:51.486Z",
+      "createdAt": "2026-10-29T02:11:51.486Z"
+    }
+  ],
+  "automationHistory": [],
+  "usage": {
+    "totalRequests": 0,
+    "totalInputTokens": 0,
+    "totalOutputTokens": 0,
+    "estimatedCostUsd": 0,
+    "recentLogs": []
+  }
+}

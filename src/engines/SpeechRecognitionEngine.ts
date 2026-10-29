@@ -1,3 +1,5 @@
+import { mapSpeechErrorToMessage, SupportedLanguage } from '../logic/languageDetector.ts';
+
 type TranscriptCallback = (transcript: string, isFinal: boolean) => void;
 type StatusCallback = (isListening: boolean) => void;
 type ErrorCallback = (error: string, friendlyMessage: string) => void;
@@ -19,6 +21,7 @@ class SpeechRecognitionEngine {
   private maxConsecutiveErrors = 4;
   private silenceAlreadySubmitted = false;
   private currentLanguageCode = 'ur-PK';
+  private currentAppLanguage: SupportedLanguage = 'roman_urdu';
 
   constructor() {
     this.initRecognition();
@@ -64,23 +67,36 @@ class SpeechRecognitionEngine {
           return;
         }
 
-        let interim = '';
-        let final = '';
+        // Seamless continuous accumulation: preserve all results from 0 to results.length
+        // so earlier finalized segments of an utterance are never dropped or truncated
+        let fullFinal = '';
+        let fullInterim = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
+        for (let i = 0; i < event.results.length; ++i) {
+          const res = event.results[i];
+          if (res && res[0] && res[0].transcript) {
+            if (res.isFinal) {
+              fullFinal += ' ' + res[0].transcript;
+            } else {
+              fullInterim += ' ' + res[0].transcript;
+            }
           }
         }
 
-        const transcript = (final || interim).trim();
+        const transcript = (fullFinal + ' ' + fullInterim).replace(/\s+/g, ' ').trim();
+
+        // Never emit empty transcripts or invent fake speech
+        if (!transcript) {
+          return;
+        }
+
         this.currentTranscript = transcript;
         this.silenceAlreadySubmitted = false;
 
-        if (this.onTranscript && transcript) {
-          this.onTranscript(transcript, Boolean(final));
+        const isOverallFinal = Boolean(fullFinal.trim()) && !fullInterim.trim();
+
+        if (this.onTranscript) {
+          this.onTranscript(transcript, isOverallFinal);
         }
 
         // Reset silence timer on any speech detected
@@ -96,28 +112,22 @@ class SpeechRecognitionEngine {
         }
 
         this.consecutiveErrors += 1;
-        let friendly = 'Microphone or speech recognition notice.';
+        const mapped = mapSpeechErrorToMessage(errType, this.currentAppLanguage);
 
         if (errType === 'not-allowed' || errType === 'permission-denied') {
-          friendly = 'Microphone permission was denied. Please allow microphone access in your browser address bar.';
           this.shouldKeepListening = false; // Stop restart attempts if permission is denied
-        } else if (errType === 'network') {
-          friendly = 'Speech recognition network connectivity error. Please check your internet connection.';
-        } else if (errType === 'audio-capture') {
-          friendly = 'No microphone device was detected. Please check your audio input settings.';
-        } else if (errType === 'service-not-allowed') {
-          friendly = 'Browser speech recognition service is not permitted by your system policies.';
         }
 
-        console.warn(`[SpeechRecognition] ${errType}:`, friendly);
-        if (this.onError) this.onError(errType, friendly);
+        console.warn(`[SpeechRecognition] ${errType}:`, mapped.friendlyMessage);
+        if (this.onError) this.onError(errType, mapped.friendlyMessage);
 
         // If hitting repeated rapid errors, pause auto-restarts to prevent loop
-        if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
-          console.warn('[SpeechRecognition] Too many consecutive errors. Pausing auto-restart.');
+        if (this.consecutiveErrors >= this.maxConsecutiveErrors || mapped.isFatal) {
+          console.warn('[SpeechRecognition] Fatal or consecutive errors reached. Pausing auto-restart.');
           this.shouldKeepListening = false;
         }
       };
+
 
       this.recognition.onend = () => {
         this.isListening = false;
@@ -243,11 +253,13 @@ class SpeechRecognitionEngine {
   }
 
   public setLanguage(lang: 'roman_urdu' | 'english' | 'urdu') {
+    this.currentAppLanguage = lang;
     const langCode = lang === 'english' ? 'en-US' : 'ur-PK';
     this.currentLanguageCode = langCode;
 
     if (this.recognition) {
       this.recognition.lang = langCode;
+
       // If currently listening, cleanly restart session with the new language
       if (this.isListening && !this.isLockedOut) {
         try {

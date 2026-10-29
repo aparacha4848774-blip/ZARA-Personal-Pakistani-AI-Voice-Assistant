@@ -36,14 +36,21 @@ export const BANNED_LINES = [
   'Main MJ hoon',
 ];
 
+import { detectLanguage, SupportedLanguage } from './languageDetector.ts';
+
 export const GEMINI_UNAVAILABLE_MESSAGE_URDU =
   'Boss, abhi Gemini API available nahi - API key check karein ya quota khatam hua';
+export const GEMINI_UNAVAILABLE_MESSAGE_URDU_SCRIPT =
+  'باس، ابھی جیمنائی سرور دستیاب نہیں ہے - براہ کرم انٹرنیٹ یا کوٹہ چیک فرمائیں۔';
 export const GEMINI_UNAVAILABLE_MESSAGE_EN =
   'Boss, Gemini API is currently unavailable - please check your API key or quota limit';
 
-export function getGeminiUnavailableMessage(isEnglish = false): string {
-  return isEnglish ? GEMINI_UNAVAILABLE_MESSAGE_EN : GEMINI_UNAVAILABLE_MESSAGE_URDU;
+export function getGeminiUnavailableMessage(lang: 'english' | 'urdu' | 'roman_urdu' | boolean = false): string {
+  if (lang === 'english' || lang === true) return GEMINI_UNAVAILABLE_MESSAGE_EN;
+  if (lang === 'urdu') return GEMINI_UNAVAILABLE_MESSAGE_URDU_SCRIPT;
+  return GEMINI_UNAVAILABLE_MESSAGE_URDU;
 }
+
 
 /**
  * Normalizes multi-turn conversation history for Gemini API:
@@ -189,11 +196,32 @@ export function cleanResponseText(rawText: string): string {
  */
 export function generateContextualDostanaFallback(
   message: string,
-  highThinking = false
+  highThinking = false,
+  languageOverride?: SupportedLanguage
 ): string {
   const lower = (message || '').toLowerCase().trim();
+  const raw = (message || '').trim();
+  const detectedLang: SupportedLanguage = languageOverride || detectLanguage(raw);
 
-  if (!lower) {
+  if (!raw) {
+    if (detectedLang === 'urdu') {
+      const urduNoInput = [
+        'آج موڈ کیسا ہے باس؟',
+        'کوئی پریشانی ہے کیا؟ بتائیں تو سہی۔',
+        'بات کریں نا، انتظار کر رہی ہوں!',
+        'خاموش کیوں ہیں باس؟ سب خیریت؟',
+      ];
+      return urduNoInput[Math.floor(Math.random() * urduNoInput.length)];
+    }
+    if (detectedLang === 'english') {
+      const enNoInput = [
+        "How's the day going, Boss?",
+        "Everything alright? Tell me what's on your mind.",
+        "I'm right here listening, Boss!",
+        "Quiet day? How can I help you out today?",
+      ];
+      return enNoInput[Math.floor(Math.random() * enNoInput.length)];
+    }
     const noInputReplies = [
       'Mood kaisa hai aaj Boss?',
       'Kuch pareshan ho kya? Batao to sahi.',
@@ -205,19 +233,27 @@ export function generateContextualDostanaFallback(
 
   // 0. Node.js runtime installer / developer setup link
   if (lower.includes('nodejs.org') || lower.includes('node-v20') || (lower.includes('node') && lower.includes('.msi'))) {
+    if (detectedLang === 'urdu') {
+      return 'باس، یہ Node.js v20.18.0 LTS کا باضابطہ 64-بٹ ونڈوز انسٹالر ہے! زارا ڈیسک ٹاپ کمپینین اور لوکل سرور چلانے کے لیے یہ رن ٹائم ضروری ہے۔ سیٹ اپ کے بعد زارا ڈیسک ٹاپ مکمل فعال ہو جائے گی!';
+    }
     return 'Boss, yeh Node.js v20.18.0 (LTS) 64-bit Windows installer hai! ZARA desktop companion aur local dev server ke liye yeh zaroori runtime engine hai. Setup steps: 1) Installer run karein, 2) Next dabayein aur "Add to PATH" zaroor tick rakhein, 3) CMD mein "node -v" aur "npm -v" se verify karein. Iske baad "npm run dev" se ZARA chalayein!';
   }
 
-  // 1. E-Commerce / Dropshipping / Shop queries (Status, Progress, Built, Remaining)
-  if (
+  // 1. E-Commerce / Dropshipping / Shop queries (Urdu script + Roman Urdu)
+  const isEcom =
     lower.includes('dropshipping') ||
     lower.includes('e-commerce') ||
     lower.includes('ecommerce') ||
     lower.includes('shop') ||
     lower.includes('store') ||
-    lower.includes('product')
-  ) {
-    if (
+    lower.includes('product') ||
+    raw.includes('ای کامرس') ||
+    raw.includes('ڈراپ شپنگ') ||
+    raw.includes('دکان') ||
+    raw.includes('پروڈکٹ');
+
+  if (isEcom) {
+    const isStatus =
       lower.includes('kahan tak') ||
       lower.includes('status') ||
       lower.includes('progress') ||
@@ -225,58 +261,109 @@ export function generateContextualDostanaFallback(
       lower.includes('kya baaki') ||
       lower.includes('bani') ||
       lower.includes('shuru') ||
-      lower.includes('wagera')
-    ) {
+      lower.includes('wagera') ||
+      raw.includes('کہاں تک') ||
+      raw.includes('کیا بنا') ||
+      raw.includes('پروگریس') ||
+      raw.includes('حیثیت');
+
+    if (detectedLang === 'urdu') {
+      if (isStatus) {
+        return 'باس، ای کامرس اور ڈراپ شپنگ اسٹور کا کور سیٹ اپ 70 فیصد تیار ہے! پروڈکٹ کیٹلاگ، کارٹ، اور روپوں (PKR) میں چیک آؤٹ مکمل ہیں۔ اگلا مرحلہ: سپلائر انوینٹری منسلک کریں یا آن لائن پیمنٹ گیٹ وے؟';
+      }
+      return 'باس، ای کامرس اور ڈراپ شپنگ اسٹور فعال ہے! پروڈکٹس کیٹلاگ اور چیک آؤٹ بالکل ریڈی ہیں۔ بتائیں کیا سیٹ اپ شروع کریں؟';
+    }
+
+    if (detectedLang === 'english') {
+      return 'Boss, the E-Commerce & Dropshipping storefront core is ready with responsive product cards, cart, and PKR checkout. Would you like to connect supplier APIs or payment gateways next?';
+    }
+
+    if (isStatus) {
       return 'Boss, E-Commerce aur Dropshipping shop ka Core Setup 70% ready hai! Product catalog, reactive shopping cart, aur PKR checkout tayyar hain. Baaqi automated supplier API (CJ Dropshipping/AliExpress) aur online payment gateway connect hona baaki hai. Agla step: Pehle dropshipping suppliers connect karein ya payment gateway integrate karein?';
     }
     return 'Boss, E-Commerce aur Dropshipping storefront active hai! Products catalog, dynamic cart, aur checkout ready hain. Batao supplier inventory sync karein ya payment setup?';
   }
 
-  // 2. Website / App / Project Status
-  if (
+  // 2. Website / App / Project Status (Urdu script + Roman Urdu)
+  const isWebsite =
     lower.includes('website') ||
     lower.includes('site') ||
     lower.includes('app') ||
     lower.includes('code') ||
-    lower.includes('project')
-  ) {
-    if (
+    lower.includes('project') ||
+    raw.includes('ویب سائٹ') ||
+    raw.includes('سائٹ') ||
+    raw.includes('ایپ') ||
+    raw.includes('کوڈ') ||
+    raw.includes('پروجیکٹ');
+
+  if (isWebsite) {
+    const isStatus =
       lower.includes('kahan tak') ||
       lower.includes('status') ||
       lower.includes('progress') ||
       lower.includes('kya bana') ||
-      lower.includes('bani')
-    ) {
+      lower.includes('bani') ||
+      raw.includes('کہاں تک') ||
+      raw.includes('کیا بنا');
+
+    if (detectedLang === 'urdu') {
+      if (isStatus) {
+        return 'باس، ویب پروجیکٹ کا فرنٹ اینڈ لے آؤٹ اور جدید کمپوننٹس 75 فیصد تیار ہیں۔ ریسپانسیو ڈیزائن فعال ہے۔ اگلا مرحلہ: لائیو ہوسٹنگ پر اپلوڈ کریں یا بیک اینڈ ڈیٹا بیس جوڑیں؟';
+      }
+      return 'باس، ویب ایپلیکیشن کا مکمل ماڈیولر فرنٹ اینڈ ریڈی ہے۔ بتائیں اگلا سیکشن ڈیزائن کریں یا بیک اینڈ API بنائیں؟';
+    }
+
+    if (detectedLang === 'english') {
+      return 'Boss, the web project layout and UI components are running cleanly. Let me know if you want to deploy live or connect backend endpoints next!';
+    }
+
+    if (isStatus) {
       return 'Boss, website project ka frontend layout aur components 75% tayyar hain. Responsive navigation, cards, aur styling ready hain. Baaqi backend API aur live hosting deploy karna baaki hai. Agla step: Live hosting deploy karein ya backend database connect karein?';
     }
     return 'Boss, web application ka frontend aur responsive UI modules tayyar hain. Batao agla component design karein ya backend API connect karein?';
   }
 
   // 3. Logo / Branding / Design
-  if (lower.includes('logo') || lower.includes('design') || lower.includes('brand')) {
-    if (
-      lower.includes('kahan tak') ||
-      lower.includes('status') ||
-      lower.includes('progress') ||
-      lower.includes('kya bana')
-    ) {
-      return 'Boss, vector SVG logo ka primary emblem aur typography finalized hain! Scalable vector paths aur luxury color palette ready hain. Favicon aur social banner export karna baaki hai. Agla step: SVG download karein ya social banner export karein?';
+  const isLogo =
+    lower.includes('logo') ||
+    lower.includes('design') ||
+    lower.includes('brand') ||
+    raw.includes('لوگو') ||
+    raw.includes('ڈیزائن') ||
+    raw.includes('برانڈ');
+
+  if (isLogo) {
+    if (detectedLang === 'urdu') {
+      return 'باس، ویکٹر لوگو کا ڈیزائن اسٹوڈیو تیار ہے۔ جدید ہندسی نشانات اور اعلیٰ کلر پیلیٹ سامنے سکرین پر لائیو دیکھے جا سکتے ہیں۔';
+    }
+    if (detectedLang === 'english') {
+      return 'Boss, vector logo design studio is active with modern geometry and clean typography ready to export!';
     }
     return 'Boss, modern vector logo design studio active hai. Geometric emblem, neon gradients, aur scalable SVG direct preview mein hain.';
   }
 
-  // 4. Research & Analysis
-  if (lower.includes('research') || lower.includes('market') || lower.includes('analysis') || lower.includes('trend')) {
-    return 'Boss, market research analysis mein verified metrics aur growth data compile ho chuka hai. Subse bara trend autonomous edge agents aur high-engagement localized voice interfaces hain. Agla step: Key action items implement karein ya competitors analyze karein?';
-  }
+  // 4. Greetings (Urdu script + Roman Urdu + English)
+  const isGreeting =
+    lower.includes('salam') ||
+    lower.includes('assalam') ||
+    lower.includes('hello') ||
+    lower.includes('hey') ||
+    raw.includes('سلام') ||
+    raw.includes('السلام');
 
-  // 5. WhatsApp & Communication
-  if (lower.includes('whatsapp') || lower.includes('message') || lower.includes('msg')) {
-    return 'Boss, WhatsApp automated dispatch pipeline ready hai. Contact aur message text batayein taake foran clipboard aur desktop dispatch ho sake.';
-  }
-
-  // 6. Greetings
-  if (lower.includes('salam') || lower.includes('assalam') || lower.includes('hello') || lower.includes('hey')) {
+  if (isGreeting) {
+    if (detectedLang === 'urdu') {
+      const urduGreetings = [
+        'وعلیکم السلام باس! کیا حال چال ہیں؟ سب خیریت؟',
+        'ارے باس! کیا چل رہا ہے؟ بتائیں!',
+        'السلام علیکم باس! آج کا دن کیسا گزر رہا ہے؟',
+      ];
+      return urduGreetings[Math.floor(Math.random() * urduGreetings.length)];
+    }
+    if (detectedLang === 'english') {
+      return "Hey Boss! Great to hear from you. How are things going today?";
+    }
     const greetings = [
       'Wa Alaikum Assalam Boss! Kya haal chaal hain? Sab theek?',
       'Arre Boss! Kya chal raha hai? Batao!',
@@ -285,8 +372,19 @@ export function generateContextualDostanaFallback(
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
 
-  // 7. Tea & Coffee
-  if (lower.includes('chai') || lower.includes('tea') || lower.includes('coffee')) {
+  // 5. Chai / Tea (Urdu script + Roman Urdu)
+  const isChai =
+    lower.includes('chai') ||
+    lower.includes('tea') ||
+    lower.includes('coffee') ||
+    raw.includes('چائے') ||
+    raw.includes('کافی') ||
+    raw.includes('دودھ پتی');
+
+  if (isChai) {
+    if (detectedLang === 'urdu') {
+      return 'چائے پی لی باس؟ میری طرف سے ایک کپ کڑک الائچی والی! چائے تو پہلے چاہیے، اس کے بعد باقی سارے کام!';
+    }
     const chaiReplies = [
       'Chai pi li Boss? Meri taraf se ek cup kadak elaichi wali!',
       'Chai ka waqt ho gaya Boss! Ek garam cup doodh patti ho jaye?',
@@ -295,8 +393,20 @@ export function generateContextualDostanaFallback(
     return chaiReplies[Math.floor(Math.random() * chaiReplies.length)];
   }
 
-  // 8. Well-being inquiries
-  if (lower.includes('kaise') || lower.includes('kya haal') || lower.includes('kaisa hai')) {
+  // 6. Well-being inquiries (Urdu script + Roman Urdu)
+  const isWellBeing =
+    lower.includes('kaise') ||
+    lower.includes('kya haal') ||
+    lower.includes('kaisa hai') ||
+    raw.includes('کیسے ہو') ||
+    raw.includes('کیسی ہو') ||
+    raw.includes('کیا حال') ||
+    raw.includes('سب خیریت');
+
+  if (isWellBeing) {
+    if (detectedLang === 'urdu') {
+      return 'میں بالکل زبردست اور فرسٹ کلاس ہوں باس! آپ سنائیں، آج کیا نیا شروع کریں؟';
+    }
     const statusReplies = [
       'Main bilkul first class hoon Boss! Aap sunao, aaj kya kaam shuru karein?',
       'Ekdum zabardast! Aapka mood kaisa hai aaj?',
@@ -305,8 +415,20 @@ export function generateContextualDostanaFallback(
     return statusReplies[Math.floor(Math.random() * statusReplies.length)];
   }
 
-  // 9. Stress / Tired
-  if (lower.includes('bore') || lower.includes('pareshan') || lower.includes('tension') || lower.includes('thak')) {
+  // 7. Stress / Tired
+  const isStress =
+    lower.includes('bore') ||
+    lower.includes('pareshan') ||
+    lower.includes('tension') ||
+    lower.includes('thak') ||
+    raw.includes('پریشان') ||
+    raw.includes('ٹینشن') ||
+    raw.includes('تھک گیا');
+
+  if (isStress) {
+    if (detectedLang === 'urdu') {
+      return 'ارے باس، بالکل پریشان مت ہوں۔ میں آپ کی سچی دوست ہوں، مل کر سب حل کریں گے۔ بتائیں کیا پریشانی ہے؟';
+    }
     const caringReplies = [
       'Arre yaar pareshan mat ho, mil kar theek karte hain. Batao kya hua?',
       'Tension kyun le rahe ho Boss? Main hoon na, aaram se baat karo.',
@@ -316,14 +438,28 @@ export function generateContextualDostanaFallback(
   }
 
   if (highThinking) {
+    if (detectedLang === 'urdu') {
+      return 'باس، میں نے اس سوال پر گہرائی سے تجزیہ کر لیا ہے۔ نتیجہ اور واضح لائحہ عمل سامنے تیار ہے۔';
+    }
+    if (detectedLang === 'english') {
+      return 'Boss, I have analyzed this with deep structural reasoning. The direct solution is ready on your screen.';
+    }
     return 'Boss, maine is par gehrayi se research aur structural analysis ki hai. Direct solution samne active hai.';
   }
 
-  // Default contextual response without ANY generic readiness statements
+  // Default contextual response without generic canned lines
+  if (detectedLang === 'urdu') {
+    return 'باس، میں بالکل حاضر اور فعال ہوں۔ فرمائیے، کون سا کام شروع کریں؟';
+  }
+  if (detectedLang === 'english') {
+    return "Boss, I'm active and ready. What task would you like to tackle?";
+  }
+
   const cleaned = lower.replace(/\b(zara|boss|yaar|batao|karo|hai|hain|ki|ke|ka|mujhe|aur)\b/g, '').trim();
   if (cleaned.length > 2) {
     return `Boss, "${cleaned}" ke mutabiq agla action plan tayyar hai. Iska direct roadmap samne screen par dekhein.`;
   }
 
-  return 'Boss, main bilkul active hoon. Hukum karein konsa task run karna hai?';
+  return 'Boss, main bilkul active hoon. Batao konsa task run karna hai?';
 }
+

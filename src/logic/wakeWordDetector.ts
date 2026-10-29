@@ -16,6 +16,15 @@ export const WAKE_WORD_PATTERNS = [
   'suno zara',
   'zara suno',
   'zara',
+  // Urdu script patterns
+  'السلام علیکم زارا',
+  'السلام علیکم',
+  'سلام زارا',
+  'ہیلو زارا',
+  'اے زارا',
+  'سنو زارا',
+  'زارا سنو',
+  'زارا',
 ];
 
 export function detectWakeWord(transcript: string): WakeWordMatch {
@@ -32,28 +41,44 @@ export function detectWakeWord(transcript: string): WakeWordMatch {
 
   for (const phrase of WAKE_WORD_PATTERNS) {
     if (cleaned === phrase) {
+      const isGreeting =
+        phrase.includes('assalam') ||
+        phrase.includes('salam') ||
+        phrase.includes('السلام') ||
+        phrase.includes('سلام');
       return {
         detected: true,
         phrase,
-        isAssalamGreeting: phrase.includes('assalam') || phrase.includes('salam'),
+        isAssalamGreeting: isGreeting,
         remainderText: '',
       };
     }
 
-    if (cleaned.startsWith(phrase + ' ') || cleaned.startsWith(phrase + ',')) {
-      const remainder = cleaned.slice(phrase.length).replace(/^[,.\s]+/, '').trim();
+    if (
+      cleaned.startsWith(phrase + ' ') ||
+      cleaned.startsWith(phrase + '،') ||
+      cleaned.startsWith(phrase + ',')
+    ) {
+      const remainder = cleaned.slice(phrase.length).replace(/^[,.\s،۔]+/, '').trim();
+      const isGreeting =
+        phrase.includes('assalam') ||
+        phrase.includes('salam') ||
+        phrase.includes('السلام') ||
+        phrase.includes('سلام');
       return {
         detected: true,
         phrase,
-        isAssalamGreeting: phrase.includes('assalam') || phrase.includes('salam'),
+        isAssalamGreeting: isGreeting,
         remainderText: remainder,
       };
     }
   }
 
-  // Check if wake word is mentioned anywhere with punctuation
-  const words = cleaned.split(/\s+/);
+  // Check if Latin 'zara' or Urdu 'زارا' is mentioned anywhere with punctuation
+  const words = cleaned.split(/[\s,،۔]+/);
   const zaraIndex = words.indexOf('zara');
+  const urduZaraIndex = words.indexOf('زارا');
+
   if (zaraIndex !== -1) {
     const isGreeting =
       (zaraIndex > 0 && words[zaraIndex - 1] === 'salam') ||
@@ -67,6 +92,19 @@ export function detectWakeWord(transcript: string): WakeWordMatch {
     };
   }
 
+  if (urduZaraIndex !== -1) {
+    const isGreeting =
+      (urduZaraIndex > 0 && words[urduZaraIndex - 1].includes('سلام')) ||
+      cleaned.includes('السلام');
+    const remainder = words.slice(urduZaraIndex + 1).join(' ');
+    return {
+      detected: true,
+      phrase: 'زارا',
+      isAssalamGreeting: isGreeting,
+      remainderText: remainder,
+    };
+  }
+
   return {
     detected: false,
     phrase: '',
@@ -74,3 +112,4 @@ export function detectWakeWord(transcript: string): WakeWordMatch {
     remainderText: '',
   };
 }
+

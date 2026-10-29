@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-29T02:18:10.182Z",
+  "lastUpdated": "2026-10-29T04:13:47.384Z",
   "settings": {
     "ownerName": "Boss",
     "preferredLanguage": "roman_urdu",
@@ -57,6 +57,17 @@
     }
   ],
   "whatsappMessages": [
+    {
+      "id": "wa-test-1793247111667",
+      "contactName": "Zainab",
+      "contactIdentifier": "+923001234567",
+      "messageText": "Meeting confirmed for 4pm",
+      "status": "simulated",
+      "userConfirmed": true,
+      "isSensitive": false,
+      "createdAt": "2026-10-29T04:11:51.667Z",
+      "sentAt": "2026-10-29T04:11:51.668Z"
+    },
     {
       "id": "wa-test-1793240290032",
       "contactName": "Zainab",
@@ -161,6 +172,26 @@
     }
   ],
   "automationHistory": [
+    {
+      "id": "job-run-1793247111499",
+      "jobId": "nonexistent-job-xyz",
+      "name": "nonexistent-job-xyz",
+      "startedAt": "2026-10-29T04:11:51.499Z",
+      "completedAt": "2026-10-29T04:11:51.499Z",
+      "durationMs": 0,
+      "status": "failed",
+      "error": "Job \"nonexistent-job-xyz\" is not a registered automation task. Available jobs: backup-memories, cleanup-temp-projects, system-diagnostics, export-data-summary"
+    },
+    {
+      "id": "job-run-1793247111499",
+      "jobId": "system-diagnostics",
+      "name": "Full Health & Diagnostic Scan",
+      "startedAt": "2026-10-29T04:11:51.493Z",
+      "completedAt": "2026-10-29T04:11:51.499Z",
+      "durationMs": 6,
+      "status": "completed",
+      "resultSummary": "Health scan complete: Node RSS 180MB, 4 memories intact, Preferred Lang: roman_urdu"
+    },
     {
       "id": "job-run-1793240289909",
       "jobId": "nonexistent-job-xyz",
@@ -443,10 +474,38 @@
     }
   ],
   "usage": {
-    "totalRequests": 0,
-    "totalInputTokens": 0,
-    "totalOutputTokens": 0,
-    "estimatedCostUsd": 0,
-    "recentLogs": []
+    "totalRequests": 3,
+    "totalInputTokens": 27,
+    "totalOutputTokens": 97,
+    "estimatedCostUsd": 0.00006225,
+    "recentLogs": [
+      {
+        "id": "log-1793247227233",
+        "modelId": "gemini-3.1-flash-lite",
+        "taskType": "fast-chat",
+        "tokens": 37,
+        "latencyMs": 6808,
+        "status": "success",
+        "createdAt": "2026-10-29T04:13:47.233Z"
+      },
+      {
+        "id": "log-1793247203434",
+        "modelId": "gemini-3.1-flash-lite",
+        "taskType": "fast-chat",
+        "tokens": 42,
+        "latencyMs": 8460,
+        "status": "success",
+        "createdAt": "2026-10-29T04:13:23.434Z"
+      },
+      {
+        "id": "log-1793247179154",
+        "modelId": "gemini-3.1-flash-lite",
+        "taskType": "fast-chat",
+        "tokens": 45,
+        "latencyMs": 8456,
+        "status": "success",
+        "createdAt": "2026-10-29T04:12:59.154Z"
+      }
+    ]
   }
 }

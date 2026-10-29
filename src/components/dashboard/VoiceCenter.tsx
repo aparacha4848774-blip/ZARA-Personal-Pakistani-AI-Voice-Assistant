@@ -67,11 +67,12 @@ export const VoiceCenter: React.FC = () => {
 
         <div className="text-xs text-zinc-400 max-w-md mx-auto">
           {state === 'LISTENING'
-            ? 'Mic active. Speak naturally in Pakistani Roman Urdu or English.'
+            ? 'Mic active. Speak naturally in Pakistani Urdu (اردو), Roman Urdu, or English.'
             : state === 'SPEAKING'
             ? 'Voice playback active. You can interrupt ZARA at any time (Barge-in).'
             : 'Idle. Click "Start Microphone" or say "Hello ZARA" to begin.'}
         </div>
+
       </div>
 
       {/* Voice Configuration Sliders */}

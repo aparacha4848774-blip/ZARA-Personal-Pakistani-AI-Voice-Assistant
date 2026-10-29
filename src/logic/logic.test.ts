@@ -1684,6 +1684,197 @@ test('Priority 3: ConversationOrchestrator safely handles null or malformed chat
   assert.equal(assignedModel, 'gemini-3.8-flash');
 });
 
+// ============================================================================
+// URDU, ROMAN URDU, AND ENGLISH VOICE UNDERSTANDING TESTS
+// ============================================================================
+
+test('Language Detection: correctly classifies Urdu script, Roman Urdu, and English', async () => {
+  const { detectLanguage } = await import('./languageDetector.ts');
+
+  // 1. Urdu script inputs
+  assert.equal(detectLanguage('السلام علیکم زارا'), 'urdu');
+  assert.equal(detectLanguage('ایک ای کامرس ویب سائٹ بناؤ'), 'urdu');
+  assert.equal(detectLanguage('لوگو بناؤ'), 'urdu');
+  assert.equal(detectLanguage('کیا حال ہے زارا؟'), 'urdu');
+  assert.equal(detectLanguage('چائے پی لی آپ نے؟'), 'urdu');
+  assert.equal(detectLanguage('آج کا موسم کیسا ہے'), 'urdu');
+
+  // 2. Roman Urdu inputs
+  assert.equal(detectLanguage('Assalam-o-Alaikum ZARA, kya haal hain?'), 'roman_urdu');
+  assert.equal(detectLanguage('ek e-commerce website banao'), 'roman_urdu');
+  assert.equal(detectLanguage('inspire ka logo banao'), 'roman_urdu');
+  assert.equal(detectLanguage('kya chal raha hai Boss?'), 'roman_urdu');
+  assert.equal(detectLanguage('chai pi li Boss?'), 'roman_urdu');
+  assert.equal(detectLanguage('main bohot pareshan hoon yaar'), 'roman_urdu');
+
+  // 3. English inputs
+  assert.equal(detectLanguage('Hello ZARA, how are you doing today?'), 'english');
+  assert.equal(detectLanguage('Please create an e-commerce website for my store'), 'english');
+  assert.equal(detectLanguage('Design a modern vector logo for my brand'), 'english');
+  assert.equal(detectLanguage('What is the weather like today?'), 'english');
+  assert.equal(detectLanguage('Can you help me fix this bug in my code?'), 'english');
+});
+
+test('Language Detection & Guards: empty transcripts, whitespace, and nulls return fallback without inventing text', async () => {
+  const { detectLanguage } = await import('./languageDetector.ts');
+  const { detectAdvancedIntent } = await import('./worldClassAiEngine.ts');
+  const { generateContextualDostanaFallback } = await import('./conversationFormatter.ts');
+
+  // Empty string returns fallback without throwing or inventing text
+  assert.equal(detectLanguage('', 'urdu'), 'urdu');
+  assert.equal(detectLanguage('   ', 'roman_urdu'), 'roman_urdu');
+  assert.equal(detectLanguage((null as unknown) as string, 'english'), 'english');
+
+  // detectAdvancedIntent on empty query never invents transcripts
+  const emptyIntent = detectAdvancedIntent('');
+  assert.equal(emptyIntent.intent, 'general');
+  assert.equal(emptyIntent.speechResponseRomanUrdu, '');
+
+  const whitespaceIntent = detectAdvancedIntent('   \t\n  ');
+  assert.equal(whitespaceIntent.intent, 'general');
+  assert.equal(whitespaceIntent.speechResponseRomanUrdu, '');
+
+  // generateContextualDostanaFallback returns appropriate response for empty query
+  const urduFallback = generateContextualDostanaFallback('', false, 'urdu');
+  assert.ok(urduFallback.length > 0);
+  assert.ok(/[\u0600-\u06FF]/.test(urduFallback), 'Urdu fallback must be in Urdu script');
+});
+
+test('Clarifications: replaces generic canned lines with helpful language-appropriate clarifications', async () => {
+  const { getClarificationResponse } = await import('./languageDetector.ts');
+
+  const urduUnclear = getClarificationResponse('urdu', 'unclear');
+  const romanUnclear = getClarificationResponse('roman_urdu', 'unclear');
+  const enUnclear = getClarificationResponse('english', 'unclear');
+
+  // Ensure Urdu response is in genuine Urdu script
+  assert.ok(/[\u0600-\u06FF]/.test(urduUnclear), 'Urdu clarification must be in Urdu script');
+  assert.ok(urduUnclear.includes('باس'), 'Urdu clarification must address as Boss (باس)');
+
+  // Ensure Roman Urdu is polite and helpful
+  assert.ok(romanUnclear.includes('Boss'), 'Roman Urdu clarification must address as Boss');
+  assert.ok(romanUnclear.toLowerCase().includes('dobara') || romanUnclear.toLowerCase().includes('wazahat'));
+
+  // Ensure English clarification is natural and friendly
+  assert.ok(enUnclear.includes('Boss'));
+
+  // CRITICAL: Ensure NONE of them use the old banned canned phrase "kuch samajh nahi aaya, dobara bolo!"
+  const bannedPhrase = 'kuch samajh nahi aaya, dobara bolo';
+  assert.equal(urduUnclear.includes(bannedPhrase), false);
+  assert.equal(romanUnclear.includes(bannedPhrase), false);
+  assert.equal(enUnclear.includes(bannedPhrase), false);
+});
+
+test('Speech Recognition Error Mapping: maps permissions, network, and audio errors accurately', async () => {
+  const { mapSpeechErrorToMessage } = await import('./languageDetector.ts');
+
+  // Permission denied error
+  const permError = mapSpeechErrorToMessage('not-allowed', 'roman_urdu');
+  assert.equal(permError.isFatal, true);
+  assert.ok(permError.friendlyMessage.toLowerCase().includes('permission') || permError.friendlyMessage.toLowerCase().includes('mic'));
+
+  // Audio capture / hardware missing
+  const audioError = mapSpeechErrorToMessage('audio-capture', 'urdu');
+  assert.equal(audioError.isFatal, true);
+  assert.ok(/[\u0600-\u06FF]/.test(audioError.friendlyMessage), 'Urdu error message must be in Urdu script');
+
+  // Network error (transient, not fatal)
+  const netError = mapSpeechErrorToMessage('network', 'english');
+  assert.equal(netError.isFatal, false);
+  assert.ok(netError.friendlyMessage.toLowerCase().includes('network'));
+
+  // Normal background silence / no-speech (silent, non-fatal)
+  const noSpeechError = mapSpeechErrorToMessage('no-speech', 'roman_urdu');
+  assert.equal(noSpeechError.isFatal, false);
+  assert.equal(noSpeechError.friendlyMessage, '');
+});
+
+test('Wake Word Detector: recognizes Urdu script wake words and extracts remainder text', async () => {
+  const { detectWakeWord } = await import('./wakeWordDetector.ts');
+
+  // Standalone Urdu script wake word
+  const match1 = detectWakeWord('زارا');
+  assert.equal(match1.detected, true);
+  assert.equal(match1.phrase, 'زارا');
+
+  // Urdu script Islamic greeting
+  const match2 = detectWakeWord('السلام علیکم زارا');
+  assert.equal(match2.detected, true);
+  assert.equal(match2.isAssalamGreeting, true);
+
+  // Urdu script with remainder query
+  const match3 = detectWakeWord('زارا، ویب سائٹ بناؤ');
+  assert.equal(match3.detected, true);
+  assert.equal(match3.remainderText, 'ویب سائٹ بناؤ');
+
+  // Urdu script hello
+  const match4 = detectWakeWord('ہیلو زارا');
+  assert.equal(match4.detected, true);
+});
+
+test('Intent Engine: processes Urdu script requests with authentic Urdu script responses', async () => {
+  const { detectAdvancedIntent } = await import('./worldClassAiEngine.ts');
+
+  // 1. E-Commerce creation in Urdu script
+  const ecom = detectAdvancedIntent('ایک ای کامرس ویب سائٹ بناؤ');
+  assert.equal(ecom.intent, 'software_engineering');
+  assert.ok(/[\u0600-\u06FF]/.test(ecom.speechResponseRomanUrdu), 'Urdu response must be in Urdu script');
+  assert.ok(ecom.artifact !== undefined);
+
+  // 2. Generic website asking for clarification in Urdu script
+  const webClar = detectAdvancedIntent('ویب سائٹ بناؤ');
+  assert.equal(webClar.needsClarification, true);
+  assert.equal(webClar.clarificationType, 'website_type');
+  assert.ok(/[\u0600-\u06FF]/.test(webClar.speechResponseRomanUrdu));
+
+  // 3. Logo clarification in Urdu script
+  const logoClar = detectAdvancedIntent('لوگو بناؤ');
+  assert.equal(logoClar.needsClarification, true);
+  assert.equal(logoClar.clarificationType, 'logo_brand');
+  assert.ok(/[\u0600-\u06FF]/.test(logoClar.speechResponseRomanUrdu));
+
+  // 4. Logo with brand name in Urdu script
+  const logoBrand = detectAdvancedIntent('Apex Tech کا لوگو');
+  assert.equal(logoBrand.intent, 'creative_logo');
+  assert.ok(logoBrand.topic.includes('Apex Tech'));
+  assert.ok(/[\u0600-\u06FF]/.test(logoBrand.speechResponseRomanUrdu));
+
+  // 5. App launch in Urdu script
+  const appLaunch = detectAdvancedIntent('کروم کھولو');
+  assert.equal(appLaunch.intent, 'app_launch');
+  assert.equal(appLaunch.topic, 'Google Chrome');
+  assert.ok(/[\u0600-\u06FF]/.test(appLaunch.speechResponseRomanUrdu));
+});
+
+test('Multilingual Contextual Fallback: returns authentic responses in the matching language', async () => {
+  const { generateContextualDostanaFallback } = await import('./conversationFormatter.ts');
+
+  // Urdu script greeting
+  const urduGreeting = generateContextualDostanaFallback('السلام علیکم', false, 'urdu');
+  assert.ok(/[\u0600-\u06FF]/.test(urduGreeting));
+  assert.ok(urduGreeting.includes('وعلیکم السلام') || urduGreeting.includes('باس'));
+
+  // Urdu script chai
+  const urduChai = generateContextualDostanaFallback('چائے پی لی آپ نے؟', false, 'urdu');
+  assert.ok(/[\u0600-\u06FF]/.test(urduChai));
+  assert.ok(urduChai.includes('چائے'));
+
+  // Roman Urdu chai
+  const romanChai = generateContextualDostanaFallback('chai pi li Boss?', false, 'roman_urdu');
+  assert.ok(romanChai.toLowerCase().includes('chai'));
+  assert.ok(romanChai.includes('Boss'));
+
+  // English greeting
+  const enGreeting = generateContextualDostanaFallback('Hello ZARA', false, 'english');
+  assert.ok(enGreeting.includes('Boss'));
+  assert.ok(enGreeting.includes('today') || enGreeting.includes('going'));
+
+  // Verify "Hukum karein" is NOT in any fallback
+  assert.equal(urduGreeting.includes('Hukum karein'), false);
+  assert.equal(romanChai.includes('Hukum karein'), false);
+});
+
+
 
 
 

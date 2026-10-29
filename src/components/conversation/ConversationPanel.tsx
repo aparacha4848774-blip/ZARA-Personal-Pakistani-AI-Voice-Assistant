@@ -314,10 +314,11 @@ export const ConversationPanel: React.FC = () => {
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Roman Urdu ya English mein bolein ya likhein... ('e-commerce site banao', 'AI trends research karo')"
+          placeholder="اردو, Roman Urdu ya English mein bolein ya likhein... ('ویب سائٹ بناؤ', 'e-commerce site banao')"
           aria-label="Message Input"
           className="flex-1 bg-[#0A0A0F] border border-white/10 focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B]/40 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-all"
         />
+
 
         <button
           type="button"

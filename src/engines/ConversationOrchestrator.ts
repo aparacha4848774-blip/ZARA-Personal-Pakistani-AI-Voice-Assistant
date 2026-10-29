@@ -16,6 +16,12 @@ import {
 import { detectAdvancedIntent } from '../logic/worldClassAiEngine.ts';
 import { MessageAttachment } from '../types/zara.types.ts';
 import { apiFetch } from '../utils/apiClient.ts';
+import {
+  detectLanguage,
+  getClarificationResponse,
+  SupportedLanguage,
+} from '../logic/languageDetector.ts';
+
 
 interface PendingClarification {
   type:
@@ -159,12 +165,15 @@ class ConversationOrchestrator {
     speechRecognitionEngine.clearSilenceTimer();
     useConversationStore.getState().setTranscriptDraft('');
 
-    // Add user message to conversation history
+    const preferred = useSettingsStore.getState().settings.preferredLanguage || 'roman_urdu';
+    const detectedLang = detectLanguage(query, preferred);
+
+    // Add user message to conversation history with detected language
     useConversationStore.getState().addMessage({
       conversationId: useConversationStore.getState().activeConversationId,
       role: 'user',
       content: query.trim(),
-      language: 'roman_urdu',
+      language: detectedLang,
       attachments,
     });
 
@@ -207,15 +216,20 @@ class ConversationOrchestrator {
           type: 'whatsapp_message',
           contextData: { contactName: contact },
         };
-        const askMsg = `Boss, ${contact} ko kya message bhejna hai?`;
+        const askMsg =
+          detectedLang === 'urdu'
+            ? `باس، ${contact} کو کیا پیغام بھیجنا ہے؟`
+            : detectedLang === 'english'
+            ? `Boss, what message should I send to ${contact}?`
+            : `Boss, ${contact} ko kya message bhejna hai?`;
         useConversationStore.getState().addMessage({
           conversationId: useConversationStore.getState().activeConversationId,
           role: 'zara',
           content: askMsg,
-          language: 'roman_urdu',
+          language: detectedLang,
           emotion: 'Curious',
         });
-        this.speakReply(askMsg, 'Curious', 85);
+        this.speakReply(askMsg, 'Curious', 85, 'high', 'gemini-3.8-flash', detectedLang);
         return;
       }
 
@@ -227,6 +241,7 @@ class ConversationOrchestrator {
 
     await this.executeUserQuery(query, attachments);
   }
+
 
   private async executeUserQuery(query: string, attachments?: MessageAttachment[]) {
     // 0. Check if there is an active pending laptop action awaiting confirmation
@@ -477,8 +492,8 @@ class ConversationOrchestrator {
     // -------------------------------------------------------------
     const highThinking = useZaraStore.getState().highThinkingEnabled;
     const currentEmotion = useEmotionStore.getState().currentEmotion;
-    const currentLang = useSettingsStore.getState().settings.preferredLanguage || 'roman_urdu';
-    const isEnglish = currentLang === 'english';
+    const preferredLang = useSettingsStore.getState().settings.preferredLanguage || 'roman_urdu';
+    const detectedLang: SupportedLanguage = detectLanguage(query, preferredLang);
 
     try {
       const res = await apiFetch('/api/chat', {
@@ -489,7 +504,7 @@ class ConversationOrchestrator {
           conversationHistory: useConversationStore.getState().messages,
           highThinking,
           currentEmotion,
-          language: currentLang,
+          language: detectedLang,
           modelId: highThinking ? 'gemini-4-argon' : 'gemini-3.8-flash',
         }),
       });
@@ -506,11 +521,10 @@ class ConversationOrchestrator {
         console.warn('[ZARA Orchestrator] Could not read response stream:', readErr);
       }
 
+      // Replaces old generic canned line with helpful, polite, language-matched clarification
       const replyText =
         data?.response ||
-        (isEnglish
-          ? "Hey Boss, I didn't quite catch that, say it again!"
-          : 'Arre Boss, kuch samajh nahi aaya, dobara bolo!');
+        getClarificationResponse(detectedLang, 'unclear');
 
       const assignedEmotion = data?.emotion || 'Confident';
       const assignedIntensity = typeof data?.intensity === 'number' ? data.intensity : 80;
@@ -527,7 +541,7 @@ class ConversationOrchestrator {
         conversationId: useConversationStore.getState().activeConversationId,
         role: 'zara',
         content: replyText,
-        language: currentLang,
+        language: detectedLang,
         emotion: assignedEmotion,
         emotionIntensity: assignedIntensity,
         confidenceLevel: assignedConfidence,
@@ -536,14 +550,12 @@ class ConversationOrchestrator {
         isThinking: Boolean(data?.isThinking),
       });
 
-      // Speak response
-      this.speakReply(replyText, assignedEmotion, assignedIntensity, assignedConfidence, assignedModel);
+      // Speak response in the user's language
+      this.speakReply(replyText, assignedEmotion, assignedIntensity, assignedConfidence, assignedModel, detectedLang);
     } catch (err: any) {
       console.error('Chat processing error:', err);
-      const fallbackReply = isEnglish
-        ? 'Hey Boss! Quick network glitch, tell me again?'
-        : 'Arre Boss! Thoda network jhol kar raha hai, dobara bolo zara!';
-      this.speakReply(fallbackReply, 'Caring', 75, 'low');
+      const fallbackReply = getClarificationResponse(detectedLang, 'network');
+      this.speakReply(fallbackReply, 'Caring', 75, 'low', 'gemini-3.8-flash', detectedLang);
     }
   }
 
@@ -552,7 +564,8 @@ class ConversationOrchestrator {
     emotion = 'Confident',
     intensity = 80,
     confidence = 'high',
-    modelUsed = 'gemini-3.8-flash'
+    modelUsed = 'gemini-3.8-flash',
+    languageOverride?: SupportedLanguage
   ) {
     const isMuted = useZaraStore.getState().isMuted;
     if (isMuted) {
@@ -572,20 +585,24 @@ class ConversationOrchestrator {
     useZaraStore.getState().setAudioPlaying(true);
 
     const { voiceSpeed, voiceVolume, preferredLanguage } = useSettingsStore.getState().settings;
-    const isEnglish = preferredLanguage === 'english';
-    const speechStyle = isEnglish
-      ? 'Warm, friendly real female best friend, natural conversational English pronunciation, casual and expressive'
-      : 'Warm, friendly real Pakistani female best friend, natural Urdu and Roman Urdu conversational pronunciation, authentic Pakistani dostana accent and cadence, casual and expressive';
+    const targetLang: SupportedLanguage = languageOverride || detectLanguage(text, preferredLanguage);
 
-    // Request Gemini TTS with Kore voice for natural delivery
+    const speechStyle =
+      targetLang === 'urdu'
+        ? 'Warm, friendly real Pakistani female best friend, authentic natural Urdu script pronunciation, fluent Pakistani dostana cadence, clear and expressive'
+        : targetLang === 'english'
+        ? 'Warm, friendly real female best friend, natural conversational English pronunciation, casual and expressive'
+        : 'Warm, friendly real Pakistani female best friend, natural Urdu and Roman Urdu conversational pronunciation, authentic Pakistani dostana accent and cadence, casual and expressive';
+
+    // Request Gemini TTS
     apiFetch('/api/voice/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
         emotion,
-        language: preferredLanguage,
-        voiceConfig: { voiceName: 'Kore' },
+        language: targetLang,
+        voiceConfig: { voiceName: targetLang === 'english' ? 'Zephyr' : 'Kore' },
         speechStyle,
       }),
     })
@@ -596,7 +613,7 @@ class ConversationOrchestrator {
           ttsData?.audioBase64,
           voiceSpeed,
           voiceVolume,
-          preferredLanguage || 'roman_urdu'
+          targetLang
         );
       })
       .catch((err) => {
@@ -606,12 +623,12 @@ class ConversationOrchestrator {
           null,
           voiceSpeed,
           voiceVolume,
-          preferredLanguage || 'roman_urdu'
+          targetLang
         );
       });
   }
 
-  public setLanguage(lang: 'roman_urdu' | 'english') {
+  public setLanguage(lang: 'roman_urdu' | 'english' | 'urdu') {
     useSettingsStore.getState().updateSetting('preferredLanguage', lang);
     speechRecognitionEngine.setLanguage(lang);
 
@@ -621,18 +638,30 @@ class ConversationOrchestrator {
         'Confident',
         85,
         'high',
-        'gemini-3.8-flash'
+        'gemini-3.8-flash',
+        'english'
       );
-    } else {
+    } else if (lang === 'urdu') {
       this.speakReply(
-        "Roman Urdu mode active ho gaya, Boss! Batao kya chal raha hai?",
+        'اردو موڈ فعال ہو گیا، باس! فرمائیے، کیا کام شروع کریں؟',
         'Confident',
         85,
         'high',
-        'gemini-3.8-flash'
+        'gemini-3.8-flash',
+        'urdu'
+      );
+    } else {
+      this.speakReply(
+        'Roman Urdu mode active ho gaya, Boss! Batao kya chal raha hai?',
+        'Confident',
+        85,
+        'high',
+        'gemini-3.8-flash',
+        'roman_urdu'
       );
     }
   }
+
 
   public startListening() {
     if (this.cooldownTimer) {

@@ -8,6 +8,8 @@ import {
   FileOrganizationArtifact,
   MessageArtifact,
 } from '../types/zara.types.ts';
+import { detectLanguage } from './languageDetector.ts';
+
 
 export type AdvancedIntentType =
   | 'software_engineering'
@@ -63,17 +65,36 @@ export function detectAdvancedIntent(query: string): AdvancedIntentResult {
 
   const raw = query.trim();
   const lower = raw.toLowerCase().replace(/[,!?;:"'(){}\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+  const lang = detectLanguage(raw);
+  const isUrduScript = lang === 'urdu';
+  const isEnglish = lang === 'english';
 
   // -------------------------------------------------------------
   // 0. Project Status & Progress Queries (E-Commerce, Dropshipping, Website, Logo)
   // -------------------------------------------------------------
   const statusMatch = checkProjectStatusIntent(lower, raw);
   if (statusMatch) {
+    let speech = statusMatch.speechResponseRomanUrdu;
+    if (isUrduScript) {
+      if (statusMatch.topic.includes('E-Commerce')) {
+        speech = 'باس، ای کامرس اور ڈراپ شپنگ شاپ کا کور سیٹ اپ 70 فیصد تیار ہے! پروڈکٹ کیٹلاگ، کارٹ، اور PKR چیک آؤٹ انٹرفیس ریڈی ہیں۔ لائیو پریویو سامنے سکرین پر دیکھیں۔';
+      } else if (statusMatch.topic.includes('Website')) {
+        speech = 'باس، ویب سائٹ پروجیکٹ کا فرنٹ اینڈ لے آؤٹ اور کمپوننٹس 75 فیصد تیار ہیں۔ ریسپانسیو نیویگیشن فعال ہے۔';
+      } else if (statusMatch.topic.includes('Logo')) {
+        speech = 'باس، ویکٹر لوگو کا ڈیزائن مکمل ہے! جیومیٹرک مونوگرام، ڈوئل کلر گریڈینٹ اور سکیل ایبل ویکٹرز سامنے چیک فرمائیں!';
+      }
+    } else if (isEnglish) {
+      if (statusMatch.topic.includes('E-Commerce')) {
+        speech = 'Boss, the E-Commerce & Dropshipping storefront core setup is 70% ready with dynamic product cards and checkout preview.';
+      } else if (statusMatch.topic.includes('Website')) {
+        speech = 'Boss, the website frontend layout is 75% ready with responsive components active on your screen.';
+      }
+    }
     return {
       intent: 'software_engineering',
       topic: statusMatch.topic,
       confidence: 0.98,
-      speechResponseRomanUrdu: statusMatch.speechResponseRomanUrdu,
+      speechResponseRomanUrdu: speech,
       artifact: statusMatch.artifact,
     };
   }
@@ -81,12 +102,17 @@ export function detectAdvancedIntent(query: string): AdvancedIntentResult {
   // Node.js runtime installer / developer setup link
   if (lower.includes('nodejs.org') || lower.includes('node-v20') || (lower.includes('node') && lower.includes('.msi'))) {
     const artifact = generateNodeJsArtifact(raw);
+    const speech = isUrduScript
+      ? 'باس، یہ Node.js v20.18.0 LTS کا باضابطہ 64-بٹ ونڈوز انسٹالر ہے! زارا ڈیسک ٹاپ کمپینین اور لوکل ڈیولپر سرور چلانے کے لیے یہ رن ٹائم ضروری ہے۔'
+      : isEnglish
+      ? 'Boss, this is the official Node.js v20.18.0 LTS 64-bit Windows installer for running the ZARA desktop companion server!'
+      : 'Boss, yeh Node.js v20.18.0 LTS ka official 64-bit Windows installer hai! ZARA desktop companion aur local dev server run karne ke liye yeh runtime engine zaroori hai. Isay install aur verify karne ke 3 simple steps samne ready hain!';
+
     return {
       intent: 'software_engineering',
       topic: 'Node.js v20.18.0 LTS Setup',
       confidence: 0.99,
-      speechResponseRomanUrdu:
-        'Boss, yeh Node.js v20.18.0 LTS ka official 64-bit Windows installer hai! ZARA desktop companion aur local dev server run karne ke liye yeh runtime engine zaroori hai. Isay install aur verify karne ke 3 simple steps samne ready hain!',
+      speechResponseRomanUrdu: speech,
       artifact: {
         type: 'code_sandbox',
         title: 'Node.js v20.18.0 LTS Setup Guide',
@@ -107,17 +133,27 @@ export function detectAdvancedIntent(query: string): AdvancedIntentResult {
         confidence: 0.98,
         needsClarification: true,
         clarificationType: 'logo_brand',
-        speechResponseRomanUrdu: 'Boss, kis cheez ka logo?',
+        speechResponseRomanUrdu: isUrduScript
+          ? 'باس، کس چیز کا لوگو؟'
+          : isEnglish
+          ? 'Boss, what brand or company is this logo for?'
+          : 'Boss, kis cheez ka logo?',
       };
     }
 
     const brandName = logoMatch.brandName;
     const logo = generateSvgLogo(brandName);
+    const speech = isUrduScript
+      ? `ارے باس! "${brandName}" کا جدید ویکٹر لوگو ریڈی کر دیا ہے۔ کلرز، ٹائپوگرافی اور سکیل ایبل ویکٹرز سامنے چیک فرمائیں!`
+      : isEnglish
+      ? `Hey Boss! I've designed a modern vector logo for "${brandName}". Check out the live scalable preview!`
+      : `Arre Boss! "${brandName}" ka modern vector logo ready kar diya hai. Colors, typography aur scalable design samne check karein!`;
+
     return {
       intent: 'creative_logo',
       topic: `${brandName} Vector Logo`,
       confidence: 0.98,
-      speechResponseRomanUrdu: `Arre Boss! "${brandName}" ka modern vector logo ready kar diya hai. Colors, typography aur scalable design samne check karein!`,
+      speechResponseRomanUrdu: speech,
       artifact: {
         type: 'svg_logo',
         title: `${brandName} Brand Identity (Vector SVG)`,
@@ -138,16 +174,26 @@ export function detectAdvancedIntent(query: string): AdvancedIntentResult {
         confidence: 0.98,
         needsClarification: true,
         clarificationType: 'website_type',
-        speechResponseRomanUrdu: 'Boss, kis type ki? E-commerce/Portfolio/Blog?',
+        speechResponseRomanUrdu: isUrduScript
+          ? 'باس، کس قسم کی ویب سائٹ؟ ای کامرس / پورٹ فولیو / بلاگ؟'
+          : isEnglish
+          ? 'Boss, what type of website? E-Commerce, Portfolio, or Blog?'
+          : 'Boss, kis type ki? E-commerce/Portfolio/Blog?',
       };
     }
 
     const { siteType, artifact, title } = websiteMatch;
+    const speech = isUrduScript
+      ? `ارے باس! ${siteType} ویب سائٹ کا مکمل کوڈ اور لائیو پریویو تیار کر دیا ہے۔ سامنے کوڈ اور سکرین چیک فرمائیں!`
+      : isEnglish
+      ? `Hey Boss! I have generated complete, working code and a live interactive preview for the ${siteType} website!`
+      : `Arre Boss! ${siteType} website ka complete code aur interactive live preview ready kar diya hai. Samne preview aur source code check karein!`;
+
     return {
       intent: 'software_engineering',
       topic: title,
       confidence: 0.98,
-      speechResponseRomanUrdu: `Arre Boss! ${siteType} website ka complete code aur interactive live preview ready kar diya hai. Samne preview aur source code check karein!`,
+      speechResponseRomanUrdu: speech,
       artifact: {
         type: 'code_sandbox',
         title: title,
@@ -159,7 +205,7 @@ export function detectAdvancedIntent(query: string): AdvancedIntentResult {
   // -------------------------------------------------------------
   // 3. App Launch Pattern: "[app] kholo" / "app kholo"
   // -------------------------------------------------------------
-  const appMatch = checkAppLaunchIntent(lower);
+  const appMatch = checkAppLaunchIntent(lower, raw);
   if (appMatch) {
     if (appMatch.needsClarification) {
       return {
@@ -168,22 +214,33 @@ export function detectAdvancedIntent(query: string): AdvancedIntentResult {
         confidence: 0.98,
         needsClarification: true,
         clarificationType: 'app_name',
-        speechResponseRomanUrdu: 'Boss, konsi app kholoon? Chrome/Notepad/Calculator/VS Code?',
+        speechResponseRomanUrdu: isUrduScript
+          ? 'باس، کون سی ایپ کھولوں؟ کروم / نوٹ پیڈ / کیلکولیٹر / وی ایس کوڈ؟'
+          : isEnglish
+          ? 'Boss, which app would you like to launch? Chrome, Notepad, Calculator, or VS Code?'
+          : 'Boss, konsi app kholoon? Chrome/Notepad/Calculator/VS Code?',
       };
     }
 
     const appName = appMatch.appName;
+    const speech = isUrduScript
+      ? `باس، ${appName} فوراً اوپن کر دیا ہے!`
+      : isEnglish
+      ? `Boss, launched ${appName} right away!`
+      : `Boss, ${appName} foran open kar diya hai!`;
+
     return {
       intent: 'app_launch',
       topic: appName,
       confidence: 0.98,
-      speechResponseRomanUrdu: `Boss, ${appName} foran open kar diya hai!`,
+      speechResponseRomanUrdu: speech,
       directAction: {
         type: 'app_launch',
         appName,
       },
     };
   }
+
 
   // -------------------------------------------------------------
   // 4. Research Pattern: "[topic] research karo" / "research karo"
@@ -401,14 +458,21 @@ function checkProjectStatusIntent(
     lower.includes('kya bana hai') ||
     lower.includes('kya baaki hai') ||
     lower.includes('update do') ||
-    lower.includes('kahan tak pohnch');
+    lower.includes('kahan tak pohnch') ||
+    raw.includes('کہاں تک') ||
+    raw.includes('کیا بنا') ||
+    raw.includes('پروگریس') ||
+    raw.includes('اپڈیٹ');
 
   const hasEcommerceOrDropship =
     lower.includes('dropshipping') ||
     lower.includes('e-commerce') ||
     lower.includes('ecommerce') ||
     lower.includes('online shop') ||
-    lower.includes('online store');
+    lower.includes('online store') ||
+    raw.includes('ڈراپ شپنگ') ||
+    raw.includes('ای کامرس') ||
+    raw.includes('دکان');
 
   if (hasEcommerceOrDropship && hasStatusInquiry) {
     const artifact = generateECommerceArtifact();
@@ -428,7 +492,7 @@ function checkProjectStatusIntent(
 
   if (
     hasStatusInquiry &&
-    (lower.includes('website') || lower.includes('site') || lower.includes('app') || lower.includes('project'))
+    (lower.includes('website') || lower.includes('site') || lower.includes('app') || lower.includes('project') || raw.includes('ویب سائٹ') || raw.includes('سائٹ'))
   ) {
     const artifact = generatePortfolioArtifact();
     const speech =
@@ -445,7 +509,7 @@ function checkProjectStatusIntent(
     };
   }
 
-  if (hasStatusInquiry && (lower.includes('logo') || lower.includes('design') || lower.includes('brand'))) {
+  if (hasStatusInquiry && (lower.includes('logo') || lower.includes('design') || lower.includes('brand') || raw.includes('لوگو'))) {
     const brand = checkLogoIntent(lower, raw)?.brandName || 'INSPIRE';
     const logo = generateSvgLogo(brand);
     const speech = `Boss, "${brand}" ka vector SVG logo design complete hai! Scalable geometric emblem, dual gradient, aur typography finalized hain. Baaqi favicon aur social kit exports rehti hain. Agla step: SVG download karein ya social media size export karein?`;
@@ -468,8 +532,37 @@ function checkLogoIntent(
   lower: string,
   raw: string
 ): { brandName: string; needsClarification?: boolean } | null {
-  if (!lower.includes('logo')) {
+  const isUrduLogo = raw.includes('لوگو');
+  if (!lower.includes('logo') && !isUrduLogo) {
     return null;
+  }
+
+  if (
+    raw === 'لوگو بناؤ' ||
+    raw === 'لوگو' ||
+    raw === 'ایک لوگو بناؤ' ||
+    raw === 'ایک لوگو بنا دیں' ||
+    raw === 'لوگو ڈیزائن کرو'
+  ) {
+    return { brandName: '', needsClarification: true };
+  }
+
+  if (isUrduLogo) {
+    const urduBrand = raw
+      .replace(/^(?:زارا،?\s*)?/g, '')
+      .replace(/(?:کا\s+لوگو.*|لوگو\s+بناؤ.*|لوگو.*)/g, '')
+      .replace(/[،۔]/g, '')
+      .trim();
+    if (urduBrand.length >= 2) {
+      return { brandName: formatBrandTitle(urduBrand) };
+    }
+    const reverseMatch = raw.match(/لوگو\s+(?:بناؤ|ڈیزائن\s+کرو)?\s*(.+)/);
+    if (reverseMatch && reverseMatch[1]) {
+      const b = reverseMatch[1].replace(/کا/g, '').trim();
+      if (b.length >= 2) {
+        return { brandName: formatBrandTitle(b) };
+      }
+    }
   }
 
   // Common stop words to strip when isolating brand name
@@ -501,7 +594,6 @@ function checkLogoIntent(
   ];
 
   // Specific high-frequency pattern: "[brand] ka logo" or "[brand] logo"
-  // Examples: "inspire ka logo", "apex ka logo", "khi tech ka logo", "inspire ka logo banao"
   const kaLogoMatch = raw.match(/^(?:zara,?\s*)?(.+?)\s+ka\s+logo(?:\s+banao|\s+bana\s+do|\s+design\s+karo)?$/i);
   if (kaLogoMatch && kaLogoMatch[1]) {
     const cand = cleanBrandString(kaLogoMatch[1], stopWords);
@@ -526,14 +618,13 @@ function checkLogoIntent(
   }
   const cleanRemainder = remainder.trim();
 
-  // If after removing all filler/stop words, there is nothing left, user gave no brand name!
-  // E.g. "logo banao", "ek logo bana do", "logo design karo"
   if (!cleanRemainder || cleanRemainder.length <= 1) {
     return { brandName: '', needsClarification: true };
   }
 
   return { brandName: formatBrandTitle(cleanRemainder) };
 }
+
 
 function cleanBrandString(str: string, stopWords: string[]): string {
   let cleaned = str.trim();
@@ -560,13 +651,20 @@ function checkWebsiteIntent(
     lower.includes('site') ||
     lower.includes('web app') ||
     lower.includes('storefront') ||
-    lower.includes('landing page');
+    lower.includes('landing page') ||
+    raw.includes('ویب سائٹ') ||
+    raw.includes('سائٹ') ||
+    raw.includes('ایپ');
 
   const hasBuildKeyword =
     lower.includes('banao') ||
     lower.includes('create') ||
     lower.includes('build') ||
-    lower.includes('code');
+    lower.includes('code') ||
+    raw.includes('بناؤ') ||
+    raw.includes('بنائیں') ||
+    raw.includes('بنا دیں') ||
+    raw.includes('تیار');
 
   if (!hasWebKeyword && !hasBuildKeyword) {
     return null;
@@ -574,7 +672,7 @@ function checkWebsiteIntent(
 
   if (hasWebKeyword && !hasBuildKeyword && !lower.includes('chahiye')) {
     // Only query about a website if explicitly requesting creation
-    if (!lower.includes('banao') && !lower.includes('ready karo')) {
+    if (!lower.includes('banao') && !lower.includes('ready karo') && !raw.includes('بناؤ')) {
       return null;
     }
   }
@@ -585,7 +683,10 @@ function checkWebsiteIntent(
     lower.includes('ecommerce') ||
     lower.includes('shop') ||
     lower.includes('store') ||
-    lower.includes('shopping')
+    lower.includes('shopping') ||
+    raw.includes('ای کامرس') ||
+    raw.includes('ڈراپ شپنگ') ||
+    raw.includes('دکان')
   ) {
     return {
       siteType: 'E-Commerce',
@@ -599,7 +700,8 @@ function checkWebsiteIntent(
     lower.includes('resume') ||
     lower.includes('personal site') ||
     lower.includes('cv') ||
-    lower.includes('developer portfolio')
+    lower.includes('developer portfolio') ||
+    raw.includes('پورٹ فولیو')
   ) {
     return {
       siteType: 'Portfolio',
@@ -613,7 +715,9 @@ function checkWebsiteIntent(
     lower.includes('cafe') ||
     lower.includes('food') ||
     lower.includes('pizza') ||
-    lower.includes('burger')
+    lower.includes('burger') ||
+    raw.includes('ریسٹورنٹ') ||
+    raw.includes('کیفے')
   ) {
     return {
       siteType: 'Restaurant',
@@ -622,7 +726,7 @@ function checkWebsiteIntent(
     };
   }
 
-  if (lower.includes('blog') || lower.includes('news') || lower.includes('magazine')) {
+  if (lower.includes('blog') || lower.includes('news') || lower.includes('magazine') || raw.includes('بلاگ')) {
     return {
       siteType: 'Blog',
       title: 'ZARA Editorial Tech Blog',
@@ -630,7 +734,7 @@ function checkWebsiteIntent(
     };
   }
 
-  if (lower.includes('todo') || lower.includes('task') || lower.includes('kanban')) {
+  if (lower.includes('todo') || lower.includes('task') || lower.includes('kanban') || raw.includes('ٹوڈو')) {
     return {
       siteType: 'Productivity Task',
       title: 'ZARA TaskFlow Pro',
@@ -639,7 +743,6 @@ function checkWebsiteIntent(
   }
 
   // Check if generic "website banao" without type
-  // Requirement 3: "Jaise: 'website banao' -> 'Boss, kis type ki? E-commerce/Portfolio/Blog?'"
   const isBareWebsite =
     lower === 'website banao' ||
     lower === 'ek website banao' ||
@@ -649,7 +752,11 @@ function checkWebsiteIntent(
     lower === 'web site banao' ||
     lower === 'create a website' ||
     lower === 'build a website' ||
-    lower === 'website create karo';
+    lower === 'website create karo' ||
+    raw === 'ویب سائٹ بناؤ' ||
+    raw === 'ایک ویب سائٹ بناؤ' ||
+    raw === 'ویب سائٹ بنا دیں' ||
+    raw === 'سائٹ بناؤ';
 
   if (isBareWebsite) {
     return {
@@ -686,14 +793,17 @@ function checkWebsiteIntent(
 }
 
 function checkAppLaunchIntent(
-  lower: string
+  lower: string,
+  raw = ''
 ): { appName: string; needsClarification?: boolean } | null {
   const hasOpenAction =
     lower.includes('kholo') ||
     lower.includes('open') ||
     lower.includes('chalao') ||
     lower.includes('launch') ||
-    lower.includes('khol do');
+    lower.includes('khol do') ||
+    raw.includes('کھولو') ||
+    raw.includes('اوپن');
 
   if (!hasOpenAction) {
     return null;
@@ -705,10 +815,17 @@ function checkAppLaunchIntent(
     lower === 'koi app kholo' ||
     lower === 'open app' ||
     lower === 'application kholo' ||
-    lower === 'app open karo'
+    lower === 'app open karo' ||
+    raw === 'ایپ کھولو' ||
+    raw === 'کوئی ایپ کھولو'
   ) {
     return { appName: '', needsClarification: true };
   }
+
+  if (raw.includes('کروم') || raw.includes('گوگل کروم')) return { appName: 'Google Chrome' };
+  if (raw.includes('نوٹ پیڈ')) return { appName: 'Notepad' };
+  if (raw.includes('کیلکولیٹر')) return { appName: 'Calculator' };
+  if (raw.includes('واٹس ایپ')) return { appName: 'WhatsApp Desktop' };
 
   const appMap: Record<string, string> = {
     chrome: 'Google Chrome',
@@ -721,6 +838,7 @@ function checkAppLaunchIntent(
     vscode: 'VS Code',
     code: 'VS Code',
     whatsapp: 'WhatsApp Desktop',
+
     terminal: 'Terminal',
     cmd: 'Terminal',
     spotify: 'Spotify',
