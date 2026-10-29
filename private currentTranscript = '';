@@ -1,25 +1,45 @@
-import { mapSpeechErrorToMessage, SupportedLanguage } from '../logic/languageDetector.ts';
+```typescript
+import {
+  mapSpeechErrorToMessage,
+  SupportedLanguage,
+} from '../logic/languageDetector.ts';
 
-type TranscriptCallback = (transcript: string, isFinal: boolean) => void;
+type TranscriptCallback = (
+  transcript: string,
+  isFinal: boolean
+) => void;
+
 type StatusCallback = (isListening: boolean) => void;
-type ErrorCallback = (error: string, friendlyMessage: string) => void;
+
+type ErrorCallback = (
+  error: string,
+  friendlyMessage: string
+) => void;
 
 class SpeechRecognitionEngine {
   private recognition: any = null;
   private isListening = false;
   private shouldKeepListening = false;
-  private isLockedOut = false; // Complete microphone lockout during SPEAKING & cooldown
-  private silenceTimer: any = null;
+  private isLockedOut = false;
+
+  private silenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private restartTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private currentTranscript = '';
+  private pendingFinalTranscript = '';
+  private currentInterimTranscript = '';
+  private lastFinalResultIndex = -1;
+
   private onTranscript: TranscriptCallback | null = null;
   private onStatus: StatusCallback | null = null;
   private onError: ErrorCallback | null = null;
   private onSilenceTrigger: (() => void) | null = null;
+
   private silenceTimeoutMs = 1500;
-  private restartTimeout: any = null;
   private consecutiveErrors = 0;
   private maxConsecutiveErrors = 4;
   private silenceAlreadySubmitted = false;
+
   private currentLanguageCode = 'ur-PK';
   private currentAppLanguage: SupportedLanguage = 'roman_urdu';
 
@@ -27,14 +47,26 @@ class SpeechRecognitionEngine {
     this.initRecognition();
   }
 
+  private resetTranscriptState() {
+    this.currentTranscript = '';
+    this.pendingFinalTranscript = '';
+    this.currentInterimTranscript = '';
+    this.lastFinalResultIndex = -1;
+  }
+
   private initRecognition() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      return;
+    }
 
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      console.warn('Web Speech API is not supported in this browser. Please use Chrome, Edge, or a Web Speech enabled browser.');
+      console.warn(
+        'Web Speech API is not supported. Please use Chrome or Edge.'
+      );
       return;
     }
 
@@ -48,44 +80,67 @@ class SpeechRecognitionEngine {
         if (this.isLockedOut) {
           try {
             this.recognition.abort();
-          } catch (e) {
-            // ignore
+          } catch {
+            // Recognition may already have stopped.
           }
+
           this.isListening = false;
-          if (this.onStatus) this.onStatus(false);
+          this.onStatus?.(false);
           return;
         }
+
         this.isListening = true;
-        this.consecutiveErrors = 0; // reset error counter on successful start
+        this.consecutiveErrors = 0;
         this.silenceAlreadySubmitted = false;
-        if (this.onStatus) this.onStatus(true);
+        this.onStatus?.(true);
       };
 
       this.recognition.onresult = (event: any) => {
-        // Drop any results received while locked out (e.g. echo of ZARA's own TTS output)
         if (this.isLockedOut) {
           return;
         }
 
-        // Seamless continuous accumulation: preserve all results from 0 to results.length
-        // so earlier finalized segments of an utterance are never dropped or truncated
-        let fullFinal = '';
-        let fullInterim = '';
+        const results = event.results;
 
-        for (let i = 0; i < event.results.length; ++i) {
-          const res = event.results[i];
-          if (res && res[0] && res[0].transcript) {
-            if (res.isFinal) {
-              fullFinal += ' ' + res[0].transcript;
-            } else {
-              fullInterim += ' ' + res[0].transcript;
-            }
+        if (!results) {
+          return;
+        }
+
+        /*
+         * Rebuild the transcript from the browser's current result list.
+         * Final segments are retained; interim segments are refreshed
+         * rather than appended repeatedly.
+         */
+        let finalSegments: string[] = [];
+        let interimSegments: string[] = [];
+
+        for (let i = 0; i < results.length; i += 1) {
+          const result = results[i];
+          const segment = result?.[0]?.transcript?.trim();
+
+          if (!segment) {
+            continue;
+          }
+
+          if (result.isFinal) {
+            finalSegments.push(segment);
+          } else {
+            interimSegments.push(segment);
           }
         }
 
-        const transcript = (fullFinal + ' ' + fullInterim).replace(/\s+/g, ' ').trim();
+        this.pendingFinalTranscript = finalSegments.join(' ').trim();
+        this.currentInterimTranscript = interimSegments.join(' ').trim();
 
-        // Never emit empty transcripts or invent fake speech
+        const transcript = [
+          this.pendingFinalTranscript,
+          this.currentInterimTranscript,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
         if (!transcript) {
           return;
         }
@@ -93,62 +148,89 @@ class SpeechRecognitionEngine {
         this.currentTranscript = transcript;
         this.silenceAlreadySubmitted = false;
 
-        const isOverallFinal = Boolean(fullFinal.trim()) && !fullInterim.trim();
+        /*
+         * Do not immediately submit final browser segments.
+         * Wait for silence so the complete phrase can be submitted once.
+         */
+        this.onTranscript?.(transcript, false);
 
-        if (this.onTranscript) {
-          this.onTranscript(transcript, isOverallFinal);
-        }
-
-        // Reset silence timer on any speech detected
         this.resetSilenceTimer();
       };
 
       this.recognition.onerror = (event: any) => {
-        const errType = event.error;
+        const errType = event?.error || 'unknown';
 
         if (errType === 'no-speech' || errType === 'aborted') {
-          // Normal background silence or deliberate abort; do not increment error limit
           return;
         }
 
         this.consecutiveErrors += 1;
-        const mapped = mapSpeechErrorToMessage(errType, this.currentAppLanguage);
 
-        if (errType === 'not-allowed' || errType === 'permission-denied') {
-          this.shouldKeepListening = false; // Stop restart attempts if permission is denied
+        const mapped = mapSpeechErrorToMessage(
+          errType,
+          this.currentAppLanguage
+        );
+
+        if (
+          errType === 'not-allowed' ||
+          errType === 'permission-denied' ||
+          errType === 'service-not-allowed'
+        ) {
+          this.shouldKeepListening = false;
         }
 
-        console.warn(`[SpeechRecognition] ${errType}:`, mapped.friendlyMessage);
-        if (this.onError) this.onError(errType, mapped.friendlyMessage);
+        console.warn(
+          `[SpeechRecognition] ${errType}:`,
+          mapped.friendlyMessage
+        );
 
-        // If hitting repeated rapid errors, pause auto-restarts to prevent loop
-        if (this.consecutiveErrors >= this.maxConsecutiveErrors || mapped.isFatal) {
-          console.warn('[SpeechRecognition] Fatal or consecutive errors reached. Pausing auto-restart.');
+        this.onError?.(errType, mapped.friendlyMessage);
+
+        if (
+          this.consecutiveErrors >= this.maxConsecutiveErrors ||
+          mapped.isFatal
+        ) {
+          console.warn(
+            '[SpeechRecognition] Too many errors. Auto-restart paused.'
+          );
+
           this.shouldKeepListening = false;
         }
       };
 
-
       this.recognition.onend = () => {
         this.isListening = false;
-        if (this.onStatus) this.onStatus(false);
+        this.onStatus?.(false);
 
-        // Auto restart only if continuous listening is enabled, mic is not locked out, and error limit not hit
-        if (this.shouldKeepListening && !this.isLockedOut && this.consecutiveErrors < this.maxConsecutiveErrors) {
-          if (this.restartTimeout) clearTimeout(this.restartTimeout);
+        if (
+          this.shouldKeepListening &&
+          !this.isLockedOut &&
+          this.consecutiveErrors < this.maxConsecutiveErrors
+        ) {
+          if (this.restartTimeout) {
+            clearTimeout(this.restartTimeout);
+          }
+
           this.restartTimeout = setTimeout(() => {
-            if (this.shouldKeepListening && !this.isLockedOut) {
-              try {
-                this.recognition.start();
-              } catch (e) {
-                // ignore rapid restart attempts
-              }
+            this.restartTimeout = null;
+
+            if (!this.shouldKeepListening || this.isLockedOut) {
+              return;
+            }
+
+            try {
+              this.recognition.start();
+            } catch {
+              // The browser may still consider recognition active.
             }
           }, 300);
         }
       };
-    } catch (err) {
-      console.warn('Failed to initialize SpeechRecognition:', err);
+    } catch (error) {
+      console.warn(
+        'Failed to initialize SpeechRecognition:',
+        error
+      );
     }
   }
 
@@ -165,31 +247,41 @@ class SpeechRecognitionEngine {
   }
 
   public setSilenceTimeout(ms: number) {
-    this.silenceTimeoutMs = ms;
+    this.silenceTimeoutMs = Math.max(250, ms);
   }
 
   public setLockedOut(locked: boolean) {
     this.isLockedOut = locked;
-    if (locked) {
-      this.shouldKeepListening = false;
-      this.clearSilenceTimer();
-      if (this.restartTimeout) clearTimeout(this.restartTimeout);
-      this.currentTranscript = '';
-      this.silenceAlreadySubmitted = true;
-      if (this.recognition && this.isListening) {
-        try {
-          if (typeof this.recognition.abort === 'function') {
-            this.recognition.abort();
-          } else {
-            this.recognition.stop();
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-      this.isListening = false;
-      if (this.onStatus) this.onStatus(false);
+
+    if (!locked) {
+      return;
     }
+
+    this.shouldKeepListening = false;
+    this.clearSilenceTimer();
+
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
+
+    this.resetTranscriptState();
+    this.silenceAlreadySubmitted = true;
+
+    if (this.recognition && this.isListening) {
+      try {
+        if (typeof this.recognition.abort === 'function') {
+          this.recognition.abort();
+        } else {
+          this.recognition.stop();
+        }
+      } catch {
+        // Recognition may already have stopped.
+      }
+    }
+
+    this.isListening = false;
+    this.onStatus?.(false);
   }
 
   public getIsLockedOut(): boolean {
@@ -202,17 +294,18 @@ class SpeechRecognitionEngine {
     }
 
     this.shouldKeepListening = true;
-    this.consecutiveErrors = 0; // reset on manual user start
+    this.consecutiveErrors = 0;
     this.silenceAlreadySubmitted = false;
 
     if (!this.recognition) {
       this.initRecognition();
     }
+
     if (this.recognition && !this.isListening) {
       try {
         this.recognition.start();
-      } catch (e) {
-        // already active
+      } catch {
+        // Recognition may already be active.
       }
     }
   }
@@ -220,28 +313,50 @@ class SpeechRecognitionEngine {
   public stop() {
     this.shouldKeepListening = false;
     this.clearSilenceTimer();
-    if (this.restartTimeout) clearTimeout(this.restartTimeout);
+
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
+
     if (this.recognition && this.isListening) {
       try {
         this.recognition.stop();
-      } catch (e) {
-        // ignore
+      } catch {
+        // Recognition may already have stopped.
       }
     }
+
     this.isListening = false;
-    this.currentTranscript = '';
+    this.resetTranscriptState();
     this.silenceAlreadySubmitted = false;
-    if (this.onStatus) this.onStatus(false);
+    this.onStatus?.(false);
   }
 
   public resetSilenceTimer() {
     this.clearSilenceTimer();
+
     this.silenceTimer = setTimeout(() => {
-      // Prevent double firing of silence on the same phrase
-      if (this.currentTranscript && this.onSilenceTrigger && !this.isLockedOut && !this.silenceAlreadySubmitted) {
-        this.silenceAlreadySubmitted = true;
-        this.onSilenceTrigger();
+      this.silenceTimer = null;
+
+      if (
+        !this.currentTranscript ||
+        !this.onSilenceTrigger ||
+        this.isLockedOut ||
+        this.silenceAlreadySubmitted
+      ) {
+        return;
       }
+
+      this.silenceAlreadySubmitted = true;
+
+      /*
+       * Call the silence handler before clearing anything.
+       * The handler may need the transcript draft to submit the query.
+       */
+      this.onSilenceTrigger();
+
+      this.resetTranscriptState();
     }, this.silenceTimeoutMs);
   }
 
@@ -252,31 +367,43 @@ class SpeechRecognitionEngine {
     }
   }
 
-  public setLanguage(lang: 'roman_urdu' | 'english' | 'urdu') {
+  public setLanguage(
+    lang: 'roman_urdu' | 'english' | 'urdu'
+  ) {
     this.currentAppLanguage = lang;
+
     const langCode = lang === 'english' ? 'en-US' : 'ur-PK';
+
     this.currentLanguageCode = langCode;
 
-    if (this.recognition) {
-      this.recognition.lang = langCode;
+    if (!this.recognition) {
+      return;
+    }
 
-      // If currently listening, cleanly restart session with the new language
-      if (this.isListening && !this.isLockedOut) {
-        try {
-          this.recognition.abort();
-        } catch (e) {
-          // ignore
-        }
-        setTimeout(() => {
-          if (this.shouldKeepListening && !this.isLockedOut) {
-            try {
-              this.recognition.start();
-            } catch (e) {
-              // ignore
-            }
-          }
-        }, 150);
+    this.recognition.lang = langCode;
+
+    if (this.isListening && !this.isLockedOut) {
+      try {
+        this.recognition.abort();
+      } catch {
+        // Recognition may already have stopped.
       }
+
+      if (this.restartTimeout) {
+        clearTimeout(this.restartTimeout);
+      }
+
+      this.restartTimeout = setTimeout(() => {
+        this.restartTimeout = null;
+
+        if (this.shouldKeepListening && !this.isLockedOut) {
+          try {
+            this.recognition.start();
+          } catch {
+            // Recognition may still be stopping.
+          }
+        }
+      }, 300);
     }
   }
 
@@ -287,9 +414,14 @@ class SpeechRecognitionEngine {
   public isAvailable(): boolean {
     return Boolean(
       typeof window !== 'undefined' &&
-        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+        (
+          (window as any).SpeechRecognition ||
+          (window as any).webkitSpeechRecognition
+        )
     );
   }
 }
 
-export const speechRecognitionEngine = new SpeechRecognitionEngine();
+export const speechRecognitionEngine =
+  new SpeechRecognitionEngine();
+```
