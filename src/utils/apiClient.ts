@@ -64,8 +64,11 @@ export function setStoredAuthToken(token: string | null): void {
 /**
  * Authenticated fetch wrapper.
  * Automatically attaches Authorization and X-ZARA-AUTH headers.
+ * Keep parsed JSON as any for compatibility with TypeScript 7's unknown Response.json() result.
  */
-export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export type ApiResponse = Omit<Response, 'json'> & { json(): Promise<any> };
+
+export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<ApiResponse> {
   const token = getStoredAuthToken();
   const headers = new Headers(init.headers || {});
 
@@ -78,8 +81,5 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     }
   }
 
-  return fetch(input, {
-    ...init,
-    headers,
-  });
+  return (await fetch(input, {\n    ...init,\n    headers,\n    credentials: init.credentials || 'same-origin',\n  })) as ApiResponse;
 }
