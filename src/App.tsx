@@ -29,6 +29,7 @@ function ZaraAppShell() {
   useEffect(() => {
     // Initialize voice and speech engines
     orchestrator.initialize();
+    void useConversationStore.getState().loadInitialMessages();
 
     // Global keyboard shortcuts (Ctrl+Shift+Z to wake, Ctrl+Shift+M to mute)
     const handleKeyDown = (e: KeyboardEvent) => {
