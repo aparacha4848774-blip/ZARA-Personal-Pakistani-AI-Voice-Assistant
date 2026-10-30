@@ -1,0 +1,61 @@
+name: Deploy ZARA staging
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ZARA_AUTH_TOKEN: ${{ secrets.ZARA_AUTH_TOKEN }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      WHATSAPP_API_TOKEN: ${{ secrets.WHATSAPP_API_TOKEN }}
+      WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: cloudflare-workers-migration
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate required deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN GitHub secret"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID GitHub secret"; exit 1; }
+          test -n "$ZARA_AUTH_TOKEN" || { echo "Missing ZARA_AUTH_TOKEN GitHub secret"; exit 1; }
+          test "${#ZARA_AUTH_TOKEN}" -ge 32 || { echo "ZARA_AUTH_TOKEN must be at least 32 characters"; exit 1; }
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Worker types and verify
+        run: |
+          npm run worker:types
+          npm test
+          npm run lint
+          npm run build
+          npm run worker:dry-run
+
+      - name: Configure staging Worker secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$ZARA_AUTH_TOKEN" | npx wrangler secret put ZARA_AUTH_TOKEN
+          if [ -n "$GEMINI_API_KEY" ]; then printf '%s' "$GEMINI_API_KEY" | npx wrangler secret put GEMINI_API_KEY; fi
+          if [ -n "$WHATSAPP_API_TOKEN" ]; then printf '%s' "$WHATSAPP_API_TOKEN" | npx wrangler secret put WHATSAPP_API_TOKEN; fi
+
+      - name: Deploy staging Worker only
+        run: npx wrangler deploy
+
