@@ -40,7 +40,16 @@ Do not remove the current Express/Electron path until the Worker version passes 
 
 Files inspected: `package.json`, `vite.config.ts`, `tsconfig.json`, `server.ts`, `src/utils/apiClient.ts`, `src/engines/SpeechRecognitionEngine.ts`, `src/db/storage.ts`, `src/logic/automationService.ts`, `src/logic/whatsappService.ts`, `electron/main.cjs`, and the existing logic tests.
 
-## 3. Critical compatibility findings
+## 3. Work already committed on the migration branch
+
+- `850a371d049c5fabeebecaba1f208f7fed1bcc81` — initial repository-specific migration plan.
+- `a5d5e3b71fdaafb13b2526e5f007e93dcb513c86` — initial `wrangler.jsonc`.
+- `b6d83dfc7ec985d748df16b577d4d55fc7eb34ab` — typed Worker environment contract.
+- `f2a4e5b45df55dc2b780f526a183da3050c9397e` — Worker entry point, health endpoint, API 404, CORS preflight, and Static Assets delegation.
+
+This is scaffolding only. It does not migrate chat, TTS, persistence, authentication, WhatsApp, or automation, and it has not yet been validated with Wrangler or deployed.
+
+## 4. Critical compatibility findings
 
 ### Node-only features
 
@@ -52,6 +61,16 @@ The following are not directly portable to the Workers runtime:
 - Long-running in-process timers and local scheduled automation.
 
 Do not solve these by adding compatibility shims that silently return fake success. Each capability must be migrated to a real Cloudflare service or remain in the local Electron companion.
+
+
+
+### Migration tooling and CI gaps
+
+- The current `package.json` does not declare Wrangler or Worker-specific scripts. Add a pinned development dependency before treating local Worker commands as available.
+- The root `npm run lint` runs `tsc --noEmit` with the existing root TypeScript configuration. Verify Worker files under this configuration or introduce a dedicated Worker tsconfig without weakening checks.
+- The current CI workflow's push and pull-request triggers target `main`; direct pushes to the migration branch do not run those triggers. Run checks explicitly or extend CI coverage before using CI as evidence.
+- `ALLOWED_ORIGIN` is optional in the Worker environment type but is not configured in the Wrangler file. Configure exact staging/production origins and test both allowed and denied origins.
+- The current health endpoint is not a dependency readiness probe. A declared AI binding does not prove model availability, account eligibility, or successful inference.
 
 ### Existing product behavior to preserve
 
@@ -76,7 +95,7 @@ Do not solve these by adding compatibility shims that silently return fake succe
 - Keep destructive desktop operations behind existing confirmation controls; desktop IPC must validate inputs and use allowlisted app commands rather than arbitrary shell strings.
 - Treat prompt-injection instructions as defense-in-depth, not a complete security boundary.
 
-## 4. Target architecture
+## 5. Target architecture
 
 ```text
 Browser
@@ -103,7 +122,7 @@ Electron desktop app (separate local runtime)
 
 Use the official Workers Static Assets configuration and the Worker AI binding. Exact Wrangler configuration must be generated against the current Cloudflare documentation and validated with the installed Wrangler version. Do not copy a Pages configuration into a Workers project.
 
-## 5. Phased implementation plan
+## 6. Phased implementation plan
 
 ### Phase 0 — Baseline and inventory (complete)
 
@@ -177,7 +196,7 @@ Use the official Workers Static Assets configuration and the Worker AI binding. 
 - Only after production acceptance, decide whether Express can be removed from the web deployment. Do not remove Electron or desktop-specific code.
 - Keep a documented rollback to the last working deployment and data backup.
 
-## 6. Acceptance tests (minimum)
+## 7. Acceptance tests (minimum)
 
 ### API and chat
 
@@ -213,7 +232,7 @@ Use the official Workers Static Assets configuration and the Worker AI binding. 
 - `wrangler dev` and staging deploy work with the actual configuration.
 - Production static assets, SPA routes, API routes, D1/KV bindings and secret bindings are verified.
 
-## 7. Cloudflare model and plan verification gate
+## 8. Cloudflare model and plan verification gate
 
 Do not hard-code model IDs, daily neuron estimates, request limits, CPU limits, audio size limits, or pricing copied from an earlier chatbot answer.
 
@@ -228,7 +247,7 @@ Before implementation, verify from current official Cloudflare documentation and
 
 Candidate model names mentioned in prior planning (including GLM, Whisper, MeloTTS, Aura, M2M100, and Llama Guard) are **candidates only**, not approved dependencies. Confirm exact IDs and language support before writing production code.
 
-## 8. Files expected during implementation
+## 9. Files expected during implementation
 
 Initial scaffolding may add:
 
@@ -244,7 +263,7 @@ Initial scaffolding may add:
 
 Do not create duplicate route implementations without a clear ownership boundary. Prefer shared, runtime-neutral business logic for chat formatting, language detection, memory formatting, and validation.
 
-## 9. Rules for the implementation agent
+## 10. Rules for the implementation agent
 
 1. Work only on the migration branch until the user approves cutover.
 2. Inspect the current file before editing it; do not overwrite whole files from assumptions.
@@ -259,7 +278,7 @@ Do not create duplicate route implementations without a clear ownership boundary
 11. Keep a migration log with changed files, test results, known limitations and rollback instructions.
 12. Do not deploy production or change DNS/custom domains without explicit user authorization.
 
-## 10. Current status
+## 11. Current status
 
 - Repository-specific audit: **complete**.
 - Migration branch: **created**.
