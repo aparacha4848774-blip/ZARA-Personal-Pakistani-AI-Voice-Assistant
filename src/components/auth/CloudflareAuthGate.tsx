@@ -13,9 +13,8 @@ export function CloudflareAuthGate({ children }: { children: React.ReactNode }) 
     (async()=>{
       try {
         const health=await fetch('/api/health',{headers:{accept:'application/json'}});
-        if(!health.ok){if(active)setState('local');return;}
-        const healthData=await health.json();
-        if(healthData.runtime!=='cloudflare-workers'){if(active)setState('local');return;}
+        const healthData=await health.json().catch(()=>null);
+        if(healthData?.runtime!=='cloudflare-workers'){if(active)setState('local');return;}
         const response=await fetch('/api/auth/status',{headers:{accept:'application/json'},credentials:'same-origin'});
         const auth=await response.json();
         if(!active)return;
