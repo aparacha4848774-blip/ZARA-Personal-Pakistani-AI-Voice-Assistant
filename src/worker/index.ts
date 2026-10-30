@@ -358,7 +358,7 @@ export default {
         return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
       } catch(error) {
         const reason=error instanceof Error?error.message:'internal_error';
-        const status=reason==='content_type'?415:reason==='too_large'?413:reason==='invalid_body'?400:reason==='Unexpected end of JSON input'?400:500;
+        const status=error instanceof SyntaxError?400:reason==='content_type'?415:reason==='too_large'?413:reason==='invalid_body'?400:500;
         return json({error:status===500?'Internal server error.':reason},status,corsHeaders(origin));
       }
     }
