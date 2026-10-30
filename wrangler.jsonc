@@ -12,6 +12,17 @@
   "ai": {
     "binding": "AI"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zara-assistant-staging",
+      "database_id": "c6f6e3dc-d53e-417b-ad14-e5d7d38a922d",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 22 * * *"]
+  },
   "observability": {
     "enabled": true
   }
