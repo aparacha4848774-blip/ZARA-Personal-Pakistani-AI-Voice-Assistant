@@ -361,3 +361,17 @@ Only the settings record and three active, user-approved owner memories were imp
 - Memory snapshots are retained for 30 days; usage rows are retained for 90 days. Existing simulated WhatsApp samples were not imported.
 
 **Still not verified live:** Gemini/Workers AI requests, TTS audio quality, Pakistani Urdu/Roman Urdu recognition quality, WhatsApp delivery, browser microphone behavior on the staging hostname, D1 backup restore, and the complete staging Worker deployment. These require staging secrets and real browser/provider tests.
+
+
+## 16. CI verification checkpoint
+
+The latest fully completed green run before the active-conversation local persistence refinement is:
+
+- Run: https://github.com/aparacha4848774-blip/ZARA-Personal-Pakistani-AI-Voice-Assistant/actions/runs/41093162745
+- 108 tests passed, 0 failed.
+- Cloudflare binding type generation passed.
+- TypeScript check passed.
+- Vite production build passed.
+- Wrangler Worker dry-run passed.
+
+The follow-up commit that stores the active conversation ID across browser reloads is being checked by GitHub Actions separately. Do not treat the follow-up run as passed until GitHub reports its completed green result.
