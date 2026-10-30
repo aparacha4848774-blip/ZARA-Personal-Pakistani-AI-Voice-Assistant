@@ -305,7 +305,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       return json({settings:old});
     }
   }
-  const settingMatch=path.match(/^\\/api\\/settings\\/([^/]+)$/);
+  const settingKey = path.startsWith('/api/settings/') ? path.slice('/api/settings/'.length) : '';
   if(settingKey&&!settingKey.includes('/')&&(method==='PUT'||method==='PATCH')) {
     const key=decodeURIComponent(settingKey);
     const allowed=['ownerName','preferredLanguage','voiceSpeed','voiceVolume','wakeWordsEnabled','continuousConversation','sleepModeActive','highThinkingMode','silenceTimeoutMs','selectedMicDevice','selectedSpeakerDevice'];
@@ -354,9 +354,10 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     await env.DB.prepare('INSERT OR IGNORE INTO conversation_messages(id,conversation_id,role,content,language,model_used,created_at) VALUES(?,?,?,?,?,?,?)').bind(id,b.conversationId,b.role,b.content,b.language,typeof b.modelUsed==='string'?b.modelUsed:null,now).run();
     return json({success:true,id,conversationId:b.conversationId},201);
   }
-  const conversationMatch=path.match(/^\\/api\\/conversations\\/([^/]+)\\/messages$/);
-  if(conversationMatch&&method==='GET') {
-    const id=decodeURIComponent(conversationMatch[1]);
+  const conversationPrefix='/api/conversations/';
+  const conversationId=path.startsWith(conversationPrefix)&&path.endsWith('/messages')?path.slice(conversationPrefix.length,-'/messages'.length):'';
+  if(conversationId&&!conversationId.includes('/')&&method==='GET') {
+    const id=decodeURIComponent(conversationId);
     const rows=await env.DB.prepare('SELECT id,conversation_id,role,content,language,model_used,created_at FROM conversation_messages WHERE conversation_id=? ORDER BY created_at ASC LIMIT 200').bind(id).all<Json>();
     return json({messages:(rows.results||[]).map((row:Json)=>({id:row.id,conversationId:row.conversation_id,role:row.role,content:row.content,language:row.language,modelUsed:row.model_used,createdAt:row.created_at}))});
   }
