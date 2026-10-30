@@ -260,7 +260,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if(mismatch!==0)return json({error:'Invalid owner password.'},401);
     return json({success:true},200, { 'set-cookie': `zara_session=${encodeURIComponent(expected)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=43200` });
   }
-  const privatePath=/^\/api\/(memory|memories|settings|whatsapp|usage|automation|chat|voice)/.test(path);
+  const privatePath=/^\/api\/(memory|memories|settings|whatsapp|usage|automation|chat|voice|conversations)/.test(path);
   if(privatePath&&!authorized(request,env)) return json({error:env.ZARA_AUTH_TOKEN?'Unauthorized. Configure a valid ZARA session token.':'Private API is locked until ZARA_AUTH_TOKEN (32+ chars) is configured.'},401);
 
   if(method==='POST'&&path==='/api/auth/logout') {
