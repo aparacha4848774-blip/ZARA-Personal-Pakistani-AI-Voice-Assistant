@@ -1,3 +1,5 @@
+import type { D1Database } from './d1.types';
+
 export interface RateLimitResult {
   allowed: boolean;
   retryAfterSeconds: number;
