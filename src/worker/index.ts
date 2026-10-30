@@ -371,9 +371,14 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     const version=env.WHATSAPP_API_VERSION||'v23.0';
     const send=await fetch(`https://graph.facebook.com/${version}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,{method:'POST',headers:{authorization:`Bearer ${env.WHATSAPP_API_TOKEN}`,'content-type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:String(msg.contact_identifier).replace(/\D/g,''),type:'text',text:{body:msg.message_text}}),signal:AbortSignal.timeout(15000)});
     const data=await send.json() as Json;
-    if(!send.ok||!data.messages?.[0]?.id) {
+    if(!send.ok) {
       await env.DB.prepare("UPDATE whatsapp_messages SET status='pending',user_confirmed=0 WHERE id=? AND status='confirmed'").bind(b.id).run();
       return json({success:false,messageId:b.id,deliveryStatus:'failed',provider:'whatsapp_cloud_api',notice:'WhatsApp provider rejected the message. The draft is available for retry.'},502);
+    }
+    if(!data.messages?.[0]?.id) {
+      // A successful HTTP response without a provider message ID is ambiguous.
+      // Keep the claim locked rather than risking a duplicate on blind retry.
+      return json({success:false,messageId:b.id,deliveryStatus:'unknown',provider:'whatsapp_cloud_api',notice:'WhatsApp returned an incomplete acknowledgement. Do not retry automatically; reconcile the provider status first.'},502);
     }
     await env.DB.prepare('UPDATE whatsapp_messages SET status=?,user_confirmed=1,sent_at=?,provider_message_id=? WHERE id=?').bind('sent',new Date().toISOString(),data.messages[0].id,b.id).run();
     return json({success:true,messageId:b.id,providerMessageId:data.messages[0].id,deliveryStatus:'sent',provider:'whatsapp_cloud_api',notice:'WhatsApp accepted the message for dispatch.'});
