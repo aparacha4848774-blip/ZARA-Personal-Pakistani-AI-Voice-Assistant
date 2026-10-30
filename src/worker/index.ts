@@ -61,7 +61,7 @@ function getClientKey(request: Request): string {
 function authorized(request: Request, env: Env): boolean {
   const expected = env.ZARA_AUTH_TOKEN;
   if (!expected || expected.length < 32) return false;
-  const bearer = request.headers.get('Authorization')?.replace(/^Bearer\\s+/i, '').trim();
+  const bearer = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim();
   const custom = request.headers.get('X-ZARA-AUTH')?.trim();
   const cookie = request.headers.get('Cookie') || '';
   const session = cookie.split(';').map((v) => v.trim()).find((v) => v.startsWith('zara_session='));
