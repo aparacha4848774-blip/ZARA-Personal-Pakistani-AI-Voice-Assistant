@@ -305,6 +305,21 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       return json({settings:old});
     }
   }
+  const settingMatch=path.match(/^\\/api\\/settings\\/([^/]+)$/);
+  if(settingMatch&&(method==='PUT'||method==='PATCH')) {
+    const key=decodeURIComponent(settingMatch[1]);
+    const allowed=['ownerName','preferredLanguage','voiceSpeed','voiceVolume','wakeWordsEnabled','continuousConversation','sleepModeActive','highThinkingMode','silenceTimeoutMs','selectedMicDevice','selectedSpeakerDevice'];
+    if(!allowed.includes(key))return json({error:'Unknown setting.'},404);
+    const body=await readJson(request),settings=await getSettings(env);
+    const value=body.value;
+    if(key==='preferredLanguage'&&!['urdu','roman_urdu','english'].includes(value))return json({error:'Invalid preferred language.'},400);
+    if(['voiceSpeed','voiceVolume'].includes(key)&&(!Number.isFinite(value)||value<0||value>2))return json({error:'Setting value is out of range.'},400);
+    if(['wakeWordsEnabled','continuousConversation','sleepModeActive','highThinkingMode'].includes(key)&&typeof value!=='boolean')return json({error:'Boolean setting value required.'},400);
+    if(key==='silenceTimeoutMs'&&(!Number.isInteger(value)||value<300||value>10000))return json({error:'Silence timeout must be 300-10000ms.'},400);
+    settings[key]=value;
+    await env.DB.prepare('INSERT INTO settings(id,data_json,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json,updated_at=excluded.updated_at').bind('owner',JSON.stringify(settings),new Date().toISOString()).run();
+    return json({settings});
+  }
   if(path==='/api/whatsapp/messages'&&method==='GET') {
     const rows=await env.DB.prepare('SELECT * FROM whatsapp_messages ORDER BY created_at DESC LIMIT 200').all<Json>();
     return json({messages:(rows.results||[]).map((r: Json)=>({id:r.id,contactName:r.contact_name,contactIdentifier:r.contact_identifier,messageText:r.message_text,status:r.status,userConfirmed:Boolean(r.user_confirmed),isSensitive:Boolean(r.is_sensitive),sentAt:r.sent_at,createdAt:r.created_at}))});
@@ -330,6 +345,28 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if(!send.ok||!data.messages?.[0]?.id)return json({success:false,messageId:b.id,deliveryStatus:'failed',provider:'whatsapp_cloud_api',notice:'WhatsApp provider rejected the message.'},502);
     await env.DB.prepare('UPDATE whatsapp_messages SET status=?,user_confirmed=1,sent_at=?,provider_message_id=? WHERE id=?').bind('sent',new Date().toISOString(),data.messages[0].id,b.id).run();
     return json({success:true,messageId:b.id,providerMessageId:data.messages[0].id,deliveryStatus:'sent',provider:'whatsapp_cloud_api',notice:'WhatsApp accepted the message for dispatch.'});
+  }
+  if(path==='/api/conversations/messages'&&method==='POST') {
+    const b=await readJson(request);
+    if(typeof b.conversationId!=='string'||b.conversationId.length>120||typeof b.content!=='string'||!b.content.trim()||b.content.length>12000||!['user','zara'].includes(b.role)||!['urdu','roman_urdu','english'].includes(b.language))return json({error:'Invalid conversation message.'},400);
+    const now=new Date().toISOString(),id=typeof b.id==='string'&&b.id.length<160?b.id:crypto.randomUUID();
+    await env.DB.prepare('INSERT INTO conversations(id,title,created_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at').bind(b.conversationId,b.content.slice(0,100),now,now).run();
+    await env.DB.prepare('INSERT OR IGNORE INTO conversation_messages(id,conversation_id,role,content,language,model_used,created_at) VALUES(?,?,?,?,?,?,?)').bind(id,b.conversationId,b.role,b.content,b.language,typeof b.modelUsed==='string'?b.modelUsed:null,now).run();
+    return json({success:true,id,conversationId:b.conversationId},201);
+  }
+  const conversationMatch=path.match(/^\\/api\\/conversations\\/([^/]+)\\/messages$/);
+  if(conversationMatch&&method==='GET') {
+    const id=decodeURIComponent(conversationMatch[1]);
+    const rows=await env.DB.prepare('SELECT id,conversation_id,role,content,language,model_used,created_at FROM conversation_messages WHERE conversation_id=? ORDER BY created_at ASC LIMIT 200').bind(id).all<Json>();
+    return json({messages:(rows.results||[]).map((row:Json)=>({id:row.id,conversationId:row.conversation_id,role:row.role,content:row.content,language:row.language,modelUsed:row.model_used,createdAt:row.created_at}))});
+  }
+  if(path==='/api/automation/run'&&method==='POST') {
+    const b=await readJson(request);
+    if(b.jobId!=='backup-memories')return json({error:'Only the cloud-safe backup-memories job is available on the Worker. Desktop/system jobs remain local.'},400);
+    const count=await createMemoryBackup(env.DB);
+    const now=new Date().toISOString();
+    await env.DB.prepare('INSERT INTO automation_history(id,job_id,name,started_at,completed_at,duration_ms,status,result_summary) VALUES(?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),'backup-memories','Backup Memory Vault',now,now,0,'completed',`Backed up ${count} memories to D1.`).run();
+    return json({success:true,jobId:'backup-memories',status:'completed',message:`Backed up ${count} memories to D1.`,count});
   }
   if(path==='/api/usage'&&method==='GET') {
     const rows=await env.DB.prepare('SELECT * FROM usage_logs ORDER BY created_at DESC LIMIT 100').all<Json>();
