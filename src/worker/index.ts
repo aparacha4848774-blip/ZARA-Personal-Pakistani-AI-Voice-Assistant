@@ -135,13 +135,13 @@ async function geminiGenerate(env: Env, model: string, contents: Json[], systemI
   return text;
 }
 
-async function workersAiGenerate(env: Env, contents: Json[], systemInstruction: string): Promise<string> {
+async function workersAiGenerate(env: Env, contents: Json[], systemInstruction: string, thinking: boolean): Promise<string> {
   if (!env.AI) throw new Error('Workers AI binding is unavailable');
   const messages = [
     {role:'system',content:systemInstruction},
     ...contents.map((c:Json)=>({role:c.role==='model'?'assistant':'user',content:c.parts?.map((p:Json)=>p.text||'').join('')||''})),
   ];
-  const result = await env.AI.run(env.WORKERS_AI_MODEL || WORKERS_MODEL,{messages,max_tokens:2048,temperature:0.7}) as Json;
+  const result = await env.AI.run(env.WORKERS_AI_MODEL || WORKERS_MODEL,{messages,max_completion_tokens:2048,temperature:0.7,chat_template_kwargs:{enable_thinking:thinking}}) as Json;
   const text = result?.response || result?.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || !text.trim()) throw new Error('Workers AI returned an empty response');
   return text;
@@ -184,7 +184,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     catch (error) { failure=error instanceof Error?error.message:'Gemini failed'; }
   }
   if (!responseText) {
-    try { responseText=await workersAiGenerate(env,contents,system); modelUsed=env.WORKERS_AI_MODEL||WORKERS_MODEL; providerStatus='fallback'; }
+    try { responseText=await workersAiGenerate(env,contents,system,thinking); modelUsed=env.WORKERS_AI_MODEL||WORKERS_MODEL; providerStatus='fallback'; }
     catch (error) { failure=failure || (error instanceof Error?error.message:'AI provider failed'); }
   }
   const latency=Date.now()-started;
