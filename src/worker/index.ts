@@ -387,6 +387,12 @@ export default {
     if(url.pathname.startsWith('/api/')) {
       if(request.method==='OPTIONS')return preflight(request,env);
       const origin=originAllowed(request,env);
+      if(url.pathname==='/api/health') {
+        const health=await handleApi(request,env);
+        const headers=new Headers(health.headers);
+        corsHeaders(origin).forEach((v,k)=>headers.set(k,v));
+        return new Response(health.body,{status:health.status,statusText:health.statusText,headers});
+      }
       const limit=await checkRateLimit(env.DB,`ip:${getClientKey(request)}`,120,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
       if(!limit.allowed)return json({error:'Rate limit exceeded.',status:'rate_limited',retryAfterSeconds:limit.retryAfterSeconds},429,corsHeaders(origin));
       if(url.pathname==='/api/auth/session') {
