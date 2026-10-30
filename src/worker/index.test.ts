@@ -48,3 +48,18 @@ test('chat cannot expose saved owner memories to unauthenticated callers',async(
  const response=await worker.fetch(new Request('https://zara.example/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:'What do you remember about me?'})}),env());
  assert.equal(response.status,401);
 });
+
+test('settings store-compatible key route validates and saves preferences',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/settings/preferredLanguage',{method:'PUT',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({value:'urdu'})}),env());
+ assert.equal(response.status,200);
+ const body:any=await response.json();
+ assert.equal(body.settings.preferredLanguage,'urdu');
+});
+test('conversation history writes require owner authentication',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/conversations/messages',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({conversationId:'session-default',role:'user',content:'hello',language:'english'})}),env());
+ assert.equal(response.status,401);
+});
+test('conversation history can be persisted after owner authentication',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/conversations/messages',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({conversationId:'session-default',role:'user',content:'hello',language:'english'})}),env());
+ assert.equal(response.status,201);
+});
