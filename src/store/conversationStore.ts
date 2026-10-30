@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Message } from '../types/zara.types.ts';
 import { EmotionType } from '../logic/emotionRules.ts';
+import { apiFetch } from '../utils/apiClient.ts';
 
 interface ConversationStoreState {
   messages: Message[];
@@ -15,7 +16,7 @@ interface ConversationStoreState {
   loadInitialMessages: () => void;
 }
 
-export const useConversationStore = create<ConversationStoreState>((set) => ({
+export const useConversationStore = create<ConversationStoreState>((set, get) => ({
   messages: [
     {
       id: 'init-1',
@@ -45,6 +46,21 @@ export const useConversationStore = create<ConversationStoreState>((set) => ({
       messages: [...state.messages, newMessage],
     }));
 
+    void apiFetch('/api/conversations/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newMessage.id,
+        conversationId: newMessage.conversationId,
+        role: newMessage.role,
+        content: newMessage.content,
+        language: newMessage.language,
+        modelUsed: newMessage.modelUsed,
+      }),
+    }).then((response) => {
+      if (!response.ok) console.warn('Conversation history was not persisted:', response.status);
+    }).catch((error) => console.warn('Conversation history persistence failed:', error));
+
     return newMessage;
   },
 
@@ -70,5 +86,17 @@ export const useConversationStore = create<ConversationStoreState>((set) => ({
       ],
     }),
 
-  loadInitialMessages: () => {},
+  loadInitialMessages: async () => {
+    const conversationId = get().activeConversationId;
+    try {
+      const response = await apiFetch(`/api/conversations/${encodeURIComponent(conversationId)}/messages`);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (Array.isArray(data.messages) && data.messages.length) {
+        set({ messages: data.messages });
+      }
+    } catch (error) {
+      console.warn('Could not restore conversation history:', error);
+    }
+  },
 }));
