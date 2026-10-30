@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { CloudflareAuthGate } from './components/auth/CloudflareAuthGate.tsx';
 import { TopBar } from './components/layout/TopBar.tsx';
 import { Sidebar } from './components/layout/Sidebar.tsx';
 import { HomePanel } from './components/dashboard/HomePanel.tsx';
@@ -22,7 +23,7 @@ import { useZaraStore } from './store/zaraStore.ts';
 import { orchestrator } from './engines/ConversationOrchestrator.ts';
 import { ActionConfirmationModal } from './components/laptop/ActionConfirmationModal.tsx';
 
-export default function App() {
+function ZaraAppShell() {
   const { activeRoute, toggleMute, triggerWakeWord } = useZaraStore();
 
   useEffect(() => {
@@ -94,4 +95,8 @@ export default function App() {
       <ActionConfirmationModal />
     </div>
   );
+}
+
+export default function App() {
+  return <CloudflareAuthGate><ZaraAppShell /></CloudflareAuthGate>;
 }
