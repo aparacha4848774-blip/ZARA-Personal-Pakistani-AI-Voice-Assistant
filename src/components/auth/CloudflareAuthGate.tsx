@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { setStoredAuthToken } from '../../utils/apiClient';
 
 type GateState = 'checking' | 'local' | 'login' | 'unconfigured' | 'authenticated';
 
@@ -15,6 +16,9 @@ export function CloudflareAuthGate({ children }: { children: React.ReactNode }) 
         const health=await fetch('/api/health',{headers:{accept:'application/json'}});
         const healthData:any=await health.json().catch(()=>null);
         if(healthData?.runtime!=='cloudflare-workers'){if(active)setState('local');return;}
+        // The Worker uses a Secure, HttpOnly cookie. Remove any legacy
+        // localStorage bearer token so it is not exposed to browser scripts.
+        setStoredAuthToken(null);
         const response=await fetch('/api/auth/status',{headers:{accept:'application/json'},credentials:'same-origin'});
         const auth:any=await response.json();
         if(!active)return;
