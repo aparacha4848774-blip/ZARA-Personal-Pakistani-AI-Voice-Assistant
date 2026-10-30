@@ -20,6 +20,7 @@ import { PrivacyPanel } from './components/dashboard/PrivacyPanel.tsx';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { UsageMonitor } from './components/dashboard/UsageMonitor.tsx';
 import { useZaraStore } from './store/zaraStore.ts';
+import { useConversationStore } from './store/conversationStore.ts';
 import { useSettingsStore } from './store/settingsStore.ts';
 import { orchestrator } from './engines/ConversationOrchestrator.ts';
 import { ActionConfirmationModal } from './components/laptop/ActionConfirmationModal.tsx';
