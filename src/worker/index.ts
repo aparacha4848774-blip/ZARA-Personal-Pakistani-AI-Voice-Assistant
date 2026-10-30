@@ -191,6 +191,34 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   return json({response:responseText,emotion:'Confident',intensity:80,confidence:'medium',style:language==='urdu'?'Pakistani Urdu Script':language==='english'?'Pakistani English':'Dostana Pakistani Roman Urdu',tokensUsed:approxInput+approxOutput,modelUsed,isThinking:thinking,providerStatus,latencyMs:latency});
 }
 
+function pcmToWavBase64(base64: string, sampleRate: number, channels = 1): string {
+  const pcm = atob(base64);
+  const bytes = new Uint8Array(44 + pcm.length);
+  const view = new DataView(bytes.buffer);
+  const write = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i++) bytes[offset + i] = value.charCodeAt(i);
+  };
+  write(0, 'RIFF');
+  view.setUint32(4, 36 + pcm.length, true);
+  write(8, 'WAVE');
+  write(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * channels * 2, true);
+  view.setUint16(32, channels * 2, true);
+  view.setUint16(34, 16, true);
+  write(36, 'data');
+  view.setUint32(40, pcm.length, true);
+  for (let i = 0; i < pcm.length; i++) bytes[44 + i] = pcm.charCodeAt(i);
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)));
+  }
+  return btoa(binary);
+}
+
 async function handleTts(request: Request, env: Env): Promise<Response> {
   const body=await readJson(request);
   if(typeof body.text!=='string'||!body.text.trim()) return json({error:'Text is required.'},400);
@@ -209,7 +237,7 @@ async function handleTts(request: Request, env: Env): Promise<Response> {
   const data=await response.json() as Json;
   const audio=data.candidates?.[0]?.content?.parts?.find((p:Json)=>p.inlineData?.data)?.inlineData;
   if(!response.ok||!audio?.data) return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'TTS provider unavailable; use browser speech synthesis.'});
-  return json({audioBase64:audio.data,mimeType:audio.mimeType||'audio/L16;rate=24000',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
+  const sampleRate = Number(String(audio.mimeType || '').match(/rate=(\\d+)/i)?.[1] || 24000);\n  const wav = pcmToWavBase64(audio.data, Number.isFinite(sampleRate) ? sampleRate : 24000);\n  return json({audioBase64:wav,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
 }
 
 async function handleApi(request: Request, env: Env): Promise<Response> {
@@ -234,7 +262,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if(method==='POST'&&path==='/api/chat') return handleChat(request,env);
   if(method==='POST'&&path==='/api/voice/tts') return handleTts(request,env);
 
-  const privatePath=/^\/api\/(memory|memories|settings|whatsapp|usage|automation)/.test(path);
+  const privatePath=/^\/api\/(memory|memories|settings|whatsapp|usage|automation|chat|voice)/.test(path);
   if(privatePath&&!authorized(request,env)) return json({error:env.ZARA_AUTH_TOKEN?'Unauthorized. Configure a valid ZARA session token.':'Private API is locked until ZARA_AUTH_TOKEN (32+ chars) is configured.'},401);
 
   if(path==='/api/memory'||path==='/api/memories') {
@@ -319,7 +347,7 @@ export default {
       const origin=originAllowed(request,env);
       const limit=await checkRateLimit(env.DB,`ip:${getClientKey(request)}`,120,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
       if(!limit.allowed)return json({error:'Rate limit exceeded.',status:'rate_limited',retryAfterSeconds:limit.retryAfterSeconds},429,corsHeaders(origin));
-      if(url.pathname==='/api/chat'||url.pathname==='/api/voice/tts') {
+      if(url.pathname==='/api/auth/session') {\n        const loginLimit=await checkRateLimit(env.DB,`login:${getClientKey(request)}`,5,300).catch(()=>({allowed:false,retryAfterSeconds:300}));\n        if(!loginLimit.allowed)return json({error:'Too many login attempts. Try again later.'},429,corsHeaders(origin));\n      }\n      if(url.pathname==='/api/chat'||url.pathname==='/api/voice/tts') {
         const specific=await checkRateLimit(env.DB,`ai:${getClientKey(request)}`,30,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
         if(!specific.allowed)return json({error:'AI rate limit exceeded.',status:'rate_limited',retryAfterSeconds:specific.retryAfterSeconds},429,corsHeaders(origin));
       }
