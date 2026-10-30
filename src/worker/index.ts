@@ -294,7 +294,9 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       if(!existing)return json({error:'Memory item not found.'},404);
       const next={category:['preference','fact','instruction','contact','task'].includes(b.category)?b.category:existing.category,key:typeof b.key==='string'?b.key.slice(0,120):existing.memory_key,value:typeof b.value==='string'?b.value.slice(0,2000):existing.value,importance:['high','medium','low'].includes(b.importance)?b.importance:existing.importance,userApproved:typeof b.userApproved==='boolean'?(b.userApproved?1:0):existing.user_approved,isActive:typeof b.isActive==='boolean'?(b.isActive?1:0):existing.is_active};
       await env.DB.prepare('UPDATE memories SET category=?,memory_key=?,value=?,importance=?,user_approved=?,is_active=?,updated_at=? WHERE id=?').bind(next.category,next.key,next.value,next.importance,next.userApproved,next.isActive,new Date().toISOString(),id).run();
-      return json({memory:mapMemory(await env.DB.prepare('SELECT * FROM memories WHERE id=?').bind(id).first<Json>())});
+      const updatedRow=await env.DB.prepare('SELECT * FROM memories WHERE id=?').bind(id).first<Json>();
+      if(!updatedRow)return json({error:'Memory item not found.'},404);
+      return json({memory:mapMemory(updatedRow)});
     }
     if(method==='DELETE'){await env.DB.prepare('UPDATE memories SET is_active=0 WHERE id=?').bind(id).run();return json({success:true,id});}
   }
