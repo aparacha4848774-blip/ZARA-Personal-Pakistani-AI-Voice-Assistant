@@ -14,7 +14,8 @@
     "worker:dev": "wrangler dev",
     "worker:dry-run": "wrangler deploy --dry-run",
     "electron:dev": "electron electron/main.cjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "worker:types": "wrangler types"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
