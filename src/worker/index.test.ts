@@ -63,3 +63,12 @@ test('conversation history can be persisted after owner authentication',async()=
  const response=await worker.fetch(new Request('https://zara.example/api/conversations/messages',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({conversationId:'session-default',role:'user',content:'hello',language:'english'})}),env());
  assert.equal(response.status,201);
 });
+
+test('authenticated chat uses Workers AI fallback and records a usage entry',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/chat',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({message:'Assalam o alaikum Boss',language:'roman_urdu'})}),env());
+ assert.equal(response.status,200);
+ const body:any=await response.json();
+ assert.equal(body.response,'Adaab Boss');
+ assert.equal(body.providerStatus,'success');
+ assert.equal(body.modelUsed,'@cf/google/gemma-4-26b-a4b-it');
+});
