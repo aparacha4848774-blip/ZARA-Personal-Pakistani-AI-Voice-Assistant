@@ -69,6 +69,6 @@ test('authenticated chat uses Workers AI fallback and records a usage entry',asy
  assert.equal(response.status,200);
  const body:any=await response.json();
  assert.equal(body.response,'Adaab Boss');
- assert.equal(body.providerStatus,'success');
+ assert.equal(body.providerStatus,'fallback');
  assert.equal(body.modelUsed,'@cf/google/gemma-4-26b-a4b-it');
 });
