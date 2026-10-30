@@ -1,45 +1,46 @@
 # ZARA Cloudflare Worker Phase 1 — Verification Notes
 
-**Branch:** `cloudflare-workers-migration`  
-**Status:** Implementation and automated checks added; execution results are pending GitHub Actions.
+**Branch:** `cloudflare-workers-migration`
+**Status:** Worker implementation and automated checks are committed; staging deployment remains gated on repository configuration.
 
 ## Changes made
 
-- Pinned the Wrangler CLI to `4.156.0` as a development dependency.
-- Added `worker:dev`, `worker:test`, and `worker:dry-run` scripts.
-- Configured Cloudflare Static Assets to use SPA fallback while keeping `/api/*` Worker-first.
-- Tightened CORS preflight validation: exact configured origin, explicit method allowlist, and explicit request-header allowlist.
-- Added Worker tests for health, JSON API 404, allowed/disallowed CORS, preflight validation, and Static Assets delegation.
-- Updated CI to run on both `main` and `cloudflare-workers-migration`, and to run the Worker tests and Wrangler dry-run after the frontend build.
-- Added Wrangler local-state and local-secret exclusions to `.gitignore`.
+- Pinned Wrangler and added Worker-specific scripts.
+- Configured Cloudflare Static Assets with SPA fallback and Worker-first API routing.
+- Added strict CORS preflight validation for an exact configured origin, method allowlist, and request-header allowlist.
+- Added Worker tests for health, API 404, CORS, preflight, authentication, request validation, fallback behavior, and Static Assets delegation.
+- CI runs on both `main` and `cloudflare-workers-migration` and performs tests, type checking, frontend build, and Wrangler dry-run.
+- The Cloudflare login gate now clears legacy browser localStorage bearer tokens when it detects the Worker runtime; Worker sessions use the Secure, HttpOnly cookie.
 
-## Verification commands
+## Staging deployment requirements
 
-Run these from the repository root:
+Configure these in GitHub repository Settings → Secrets and variables → Actions:
 
-```bash
-npm install --no-audit --no-fund
-npm test
-npm run lint
-npm run build
-npm run worker:dry-run
-npm run worker:dev
-```
+**Required secrets**
+- `CLOUDFLARE_API_TOKEN` — scoped to the required Worker and D1 deployment operations.
+- `CLOUDFLARE_ACCOUNT_ID`.
+- `ZARA_AUTH_TOKEN` — unique random value of at least 32 characters.
 
-The dry-run validates the Worker bundle/configuration without publishing a Worker. Do not use `wrangler deploy` for production until the migration acceptance checks and rollback plan are approved.
+**Required variable**
+- `ALLOWED_ORIGIN` — exact HTTPS staging origin, including scheme and port if applicable. Do not use a wildcard.
+  
+**Optional WhatsApp configuration**
+- Secret `WHATSAPP_API_TOKEN`.
+- Variable `WHATSAPP_PHONE_NUMBER_ID`.
 
-## Cloudflare account inspection
+The manual staging workflow validates the required configuration, runs the full verification suite, applies D1 migrations, and deploys only the staging Worker. It does not deploy production or change DNS.
 
-The connected Cloudflare account is reachable, but its Workers Scripts list is currently empty. No Worker is deployed from this project yet.
+## Live account verification
 
-## Remaining blockers — not claimed as complete
+The connected Cloudflare account contains the `zara-assistant-staging` D1 database. The expected schema tables, one owner settings record, and three approved owner memories are present. The Workers Scripts list is currently empty, so the application has not yet been deployed as a Worker.
 
-- Set `ALLOWED_ORIGIN` as a Worker environment variable for the actual staging hostname before testing cross-origin access. Do not put secrets in `wrangler.jsonc`.
-- Run the automated test, TypeScript, frontend build, and Wrangler dry-run checks and fix any failures.
-- Test a real Wrangler local session and SPA deep-link routing.
-- Migrate chat/provider handling, durable persistence, authentication/authorization, WhatsApp state, and cloud-safe automation in separate reviewed phases.
-- Keep Electron OS controls and browser speech-recognition behavior in their supported local/browser runtimes.
+## Remaining verification
+
+- Configure the required GitHub secrets and `ALLOWED_ORIGIN` variable.
+- Run the manual staging deployment workflow.
+- Test the deployed health endpoint, login/session cookie, CORS, chat providers, D1 CRUD, voice/TTS, and WhatsApp only after its credentials are configured.
+- Complete browser and Electron smoke tests before any production cutover.
 
 ## Safety
 
-The existing Express/Electron application remains the working baseline. This phase does not remove existing functionality, change DNS, or deploy production.
+The original `main` branch and existing Express/Electron runtime remain the rollback baseline. This branch does not remove desktop functionality or change production DNS.
