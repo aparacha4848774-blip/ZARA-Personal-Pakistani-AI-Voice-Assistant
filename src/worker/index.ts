@@ -63,7 +63,10 @@ function authorized(request: Request, env: Env): boolean {
   if (!expected || expected.length < 32) return false;
   const bearer = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim();
   const custom = request.headers.get('X-ZARA-AUTH')?.trim();
-  const supplied = bearer || custom || '';
+  const cookie = request.headers.get('Cookie') || '';
+  const session = cookie.split(';').map((v) => v.trim()).find((v) => v.startsWith('zara_session='));
+  const cookieToken = session ? decodeURIComponent(session.slice('zara_session='.length)) : '';
+  const supplied = bearer || custom || cookieToken || '';
   if (supplied.length !== expected.length) return false;
   let mismatch = 0;
   for (let i = 0; i < expected.length; i++) mismatch |= expected.charCodeAt(i) ^ supplied.charCodeAt(i);
