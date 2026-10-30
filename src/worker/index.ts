@@ -369,13 +369,13 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       return json({success:false,messageId:b.id,deliveryStatus:'in_progress',notice:'This message is already being processed or is not dispatchable.'},409);
     }
     const version=env.WHATSAPP_API_VERSION||'v23.0';
-    const send=await fetch(`https://graph.facebook.com/${version}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,{method:'POST',headers:{authorization:`Bearer ${env.WHATSAPP_API_TOKEN}`,'content-type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:String(msg.contact_identifier).replace(/\\D/g,''),type:'text',text:{body:msg.message_text}}),signal:AbortSignal.timeout(15000)});
+    const send=await fetch(`https://graph.facebook.com/${version}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,{method:'POST',headers:{authorization:`Bearer ${env.WHATSAPP_API_TOKEN}`,'content-type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:String(msg.contact_identifier).replace(/\D/g,''),type:'text',text:{body:msg.message_text}}),signal:AbortSignal.timeout(15000)});
     const data=await send.json() as Json;
     if(!send.ok||!data.messages?.[0]?.id) {
       await env.DB.prepare("UPDATE whatsapp_messages SET status='pending',user_confirmed=0 WHERE id=? AND status='confirmed'").bind(b.id).run();
       return json({success:false,messageId:b.id,deliveryStatus:'failed',provider:'whatsapp_cloud_api',notice:'WhatsApp provider rejected the message. The draft is available for retry.'},502);
     }
-        await env.DB.prepare('UPDATE whatsapp_messages SET status=?,user_confirmed=1,sent_at=?,provider_message_id=? WHERE id=?').bind('sent',new Date().toISOString(),data.messages[0].id,b.id).run();
+    await env.DB.prepare('UPDATE whatsapp_messages SET status=?,user_confirmed=1,sent_at=?,provider_message_id=? WHERE id=').bind('sent',new Date().toISOString(),data.messages[0].id,b.id).run();
     return json({success:true,messageId:b.id,providerMessageId:data.messages[0].id,deliveryStatus:'sent',provider:'whatsapp_cloud_api',notice:'WhatsApp accepted the message for dispatch.'});
   }
   if(path==='/api/conversations/messages'&&method==='POST') {
