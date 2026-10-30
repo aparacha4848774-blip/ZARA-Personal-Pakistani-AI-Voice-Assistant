@@ -347,3 +347,17 @@ Verified directly against the APAC staging database after the initial import:
 
 Only the settings record and three active, user-approved owner memories were imported. Synthetic WhatsApp test records and diagnostic/test usage/automation records were intentionally excluded. The original JSON source remains unchanged in the migration branch for rollback/reference.
 
+
+
+## 15. Latest implementation details (2026-10-30)
+
+- The Worker now protects chat, TTS, memories, settings, WhatsApp, usage, automation and conversation-history routes behind the owner session. Public readiness and auth-status endpoints expose no personal records.
+- The sign-in page issues a Secure, HttpOnly, SameSite=Strict cookie. The legacy localStorage bearer token remains accepted for compatibility; a valid cookie still works if an old localStorage token is stale.
+- Login attempts are limited to five per five minutes per client IP. All API traffic and AI calls also use D1-backed rate windows. The health endpoint remains accessible if D1 rate-limit writes are unavailable.
+- Chat avoids duplicating the latest user message when the client already included it in conversation history. Gemini 3.8 Flash is primary when `GEMINI_API_KEY` is configured; Workers AI is the fallback and its response is explicitly labelled as fallback.
+- Gemini 3.8 Flash-Lite TTS audio is wrapped as WAV for browser playback. Browser speech recognition and browser speech-synthesis fallback remain in the client.
+- SettingsStore now uses the Worker-compatible per-setting endpoint. MemoryStore replaces optimistic IDs with the D1-created ID. ConversationStore now writes new turns to D1 and restores the current conversation after owner sign-in.
+- The only Worker automation job is the D1 memory backup. Local filesystem cleanup, host diagnostics, Electron, clipboard, process control and desktop actions remain local-only.
+- Memory snapshots are retained for 30 days; usage rows are retained for 90 days. Existing simulated WhatsApp samples were not imported.
+
+**Still not verified live:** Gemini/Workers AI requests, TTS audio quality, Pakistani Urdu/Roman Urdu recognition quality, WhatsApp delivery, browser microphone behavior on the staging hostname, D1 backup restore, and the complete staging Worker deployment. These require staging secrets and real browser/provider tests.
