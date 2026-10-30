@@ -216,6 +216,18 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     return json({status:db?'ok':'degraded',service:'zara-worker',runtime:'cloudflare-workers',timestamp:new Date().toISOString(),dependencies:{d1:db,workersAI:Boolean(env.AI),gemini:Boolean(env.GEMINI_API_KEY),authConfigured:Boolean(env.ZARA_AUTH_TOKEN&&env.ZARA_AUTH_TOKEN.length>=32)},capabilities:{chat:db?'gemini_with_workers_ai_fallback':'unavailable',persistence:'d1',voice:'browser_recognition_and_gemini_tts_optional',desktopControl:'electron_local_runtime',whatsapp:Boolean(env.WHATSAPP_API_TOKEN&&env.WHATSAPP_PHONE_NUMBER_ID)}} ,db?200:503);
   }
   if(method==='GET'&&path==='/api/auth/status') return json({configured:Boolean(env.ZARA_AUTH_TOKEN&&env.ZARA_AUTH_TOKEN.length>=32),authenticated:authorized(request,env)});
+  if(method==='POST'&&path==='/api/auth/session') {
+    const b=await readJson(request),expected=env.ZARA_AUTH_TOKEN;
+    if(!expected||expected.length<32)return json({error:'Owner authentication is not configured. Set ZARA_AUTH_TOKEN as a Worker secret (32+ characters).'},503);
+    const supplied=typeof b.token==='string'?b.token:'';
+    if(supplied.length!==expected.length)return json({error:'Invalid owner password.'},401);
+    let mismatch=0;for(let i=0;i<expected.length;i++)mismatch|=expected.charCodeAt(i)^supplied.charCodeAt(i);
+    if(mismatch!==0)return json({error:'Invalid owner password.'},401);
+    return json({success:true},200, { 'set-cookie': `zara_session=${encodeURIComponent(expected)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=43200` });
+  }
+  if(method==='POST'&&path==='/api/auth/logout') {
+    return json({success:true},200,{'set-cookie':'zara_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0'});
+  }
   if(method==='POST'&&path==='/api/chat') return handleChat(request,env);
   if(method==='POST'&&path==='/api/voice/tts') return handleTts(request,env);
 
