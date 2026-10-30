@@ -80,11 +80,20 @@ export const useMemoryStore = create<MemoryStoreState>((set, get) => ({
     set((state) => ({ memories: [newEntry, ...state.memories] }));
 
     try {
-      await apiFetch('/api/memory', {
+      const response = await apiFetch('/api/memory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),
       });
+      if (!response.ok) throw new Error(`Memory save failed (${response.status}).`);
+      const data = await response.json();
+      if (data.memory?.id) {
+        set((state) => ({
+          memories: state.memories.map((memory) =>
+            memory.id === newEntry.id ? data.memory : memory
+          ),
+        }));
+      }
     } catch (e) {
       console.warn('Could not persist memory to backend:', e);
     }
