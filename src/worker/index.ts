@@ -306,8 +306,8 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     }
   }
   const settingMatch=path.match(/^\\/api\\/settings\\/([^/]+)$/);
-  if(settingMatch&&(method==='PUT'||method==='PATCH')) {
-    const key=decodeURIComponent(settingMatch[1]);
+  if(settingKey&&!settingKey.includes('/')&&(method==='PUT'||method==='PATCH')) {
+    const key=decodeURIComponent(settingKey);
     const allowed=['ownerName','preferredLanguage','voiceSpeed','voiceVolume','wakeWordsEnabled','continuousConversation','sleepModeActive','highThinkingMode','silenceTimeoutMs','selectedMicDevice','selectedSpeakerDevice'];
     if(!allowed.includes(key))return json({error:'Unknown setting.'},404);
     const body=await readJson(request),settings=await getSettings(env);
