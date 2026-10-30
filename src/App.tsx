@@ -20,6 +20,7 @@ import { PrivacyPanel } from './components/dashboard/PrivacyPanel.tsx';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { UsageMonitor } from './components/dashboard/UsageMonitor.tsx';
 import { useZaraStore } from './store/zaraStore.ts';
+import { useSettingsStore } from './store/settingsStore.ts';
 import { orchestrator } from './engines/ConversationOrchestrator.ts';
 import { ActionConfirmationModal } from './components/laptop/ActionConfirmationModal.tsx';
 
@@ -30,6 +31,7 @@ function ZaraAppShell() {
     // Initialize voice and speech engines
     orchestrator.initialize();
     void useConversationStore.getState().loadInitialMessages();
+    void useSettingsStore.getState().fetchSettings();
 
     // Global keyboard shortcuts (Ctrl+Shift+Z to wake, Ctrl+Shift+M to mute)
     const handleKeyDown = (e: KeyboardEvent) => {
