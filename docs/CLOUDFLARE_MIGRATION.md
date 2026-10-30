@@ -1,6 +1,6 @@
 # ZARA Cloudflare Workers Migration — Repository-Specific Plan
 
-**Status:** Audit complete; implementation not started  
+**Status:** Audit complete; Phase 1 scaffold committed, verification pending  
 **Branch:** `cloudflare-workers-migration`  
 **Baseline:** Existing `main` branch remains untouched
 
@@ -112,14 +112,19 @@ Use the official Workers Static Assets configuration and the Worker AI binding. 
 - [x] Record migration blockers and feature-preservation requirements.
 - [ ] Capture baseline CI/build status again on this migration branch before code changes.
 
-### Phase 1 — Worker scaffolding (next)
+### Phase 1 — Worker scaffolding (partially implemented; verification pending)
 
-- Add `wrangler.jsonc` for Worker + Static Assets and AI binding, with no secrets committed.
-- Add a Worker entry point and typed environment bindings.
-- Add `/api/health` with truthful service readiness and no sensitive internals.
-- Preserve Vite's current production build output and SPA routing.
-- Keep existing Express server available for local development/rollback.
-- Verify `npm run build`, `npm test`, `npm run lint`, `wrangler dev`, root route and health endpoint.
+- [x] Add initial `wrangler.jsonc` for Worker + Static Assets and AI binding; configuration is not yet validated with Wrangler.
+- [x] Add Worker entry point and typed environment bindings.
+- [x] Add a basic `/api/health` endpoint; this is a scaffold status response, not a dependency-readiness probe.
+- [x] Delegate non-API requests to the Static Assets binding.
+- [ ] Add a pinned Wrangler development dependency and Worker scripts.
+- [ ] Verify Vite output, SPA deep links, and Static Assets fallback with the installed Wrangler version.
+- [ ] Configure explicit staging/production `ALLOWED_ORIGIN` values and test CORS on success and error responses.
+- [ ] Add Worker-specific tests for health, 404, CORS, and static asset routing.
+- [ ] Run `npm test`, `npm run lint`, `npm run build`, and `wrangler dev` on this branch and record actual results.
+
+**Phase 1 is not complete until all verification items pass.**
 
 ### Phase 2 — Provider adapter and chat route
 
@@ -258,8 +263,13 @@ Do not create duplicate route implementations without a clear ownership boundary
 
 - Repository-specific audit: **complete**.
 - Migration branch: **created**.
-- Cloudflare Worker code: **not yet implemented**.
+- `wrangler.jsonc`: **added; not yet validated with Wrangler**.
+- `src/worker/env.ts`: **added**.
+- `src/worker/index.ts`: **basic API/health/static-asset scaffold added; not yet integration-tested**.
+- Chat, TTS, persistence, authentication, WhatsApp, and automation migration: **not started**.
+- Worker-specific tests: **not added yet**.
+- Migration-branch CI/build status: **not verified**.
 - Production deployment: **not performed**.
-- Existing `main` branch: **unchanged by this migration work**.
+- Existing `main` branch: **not modified by the listed migration commits**.
 
-The next safe engineering action is Phase 1 Worker scaffolding, preceded by a baseline test/build run on this branch.
+The next safe engineering action is to finish Phase 1 verification: add pinned Wrangler tooling, verify TypeScript/build compatibility, test Static Assets and CORS behavior, and record actual CI results. Do not begin chat or data migration until this gate passes.
