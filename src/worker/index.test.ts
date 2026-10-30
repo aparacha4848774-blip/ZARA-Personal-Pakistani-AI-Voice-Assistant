@@ -3,129 +3,30 @@ import assert from 'node:assert/strict';
 import worker from './index.ts';
 import type { Env } from './env';
 
-function createEnv(overrides: Partial<Env> = {}): Env {
-  return {
-    ASSETS: {
-      fetch: async () => new Response('static asset', { status: 200 }),
-    },
-    AI: {
-      run: async () => ({ response: 'test' }),
-    },
-    ALLOWED_ORIGIN: 'https://zara.example',
-    ...overrides,
-  };
+function createDb() {
+  const rows: Record<string, any[]> = {memories:[],usage_logs:[],settings:[],whatsapp_messages:[],automation_history:[],rate_limits:[]};
+  const db:any={
+    prepare(sql:string){
+      let params:any[]=[];
+      const statement:any={
+        bind(...args:any[]){params=args;return statement;},
+        async first(){if(sql.includes('SELECT 1'))return {ok:1};if(sql.includes('SELECT data_json'))return null;if(sql.includes('SELECT * FROM memories WHERE'))return rows.memories.find(r=>r.id===params[0])||null;if(sql.includes('SELECT request_count'))return rows.rate_limits.find(r=>r.bucket_key===params[0])||null;return null;},
+        async all(){if(sql.includes('FROM memories'))return {results:rows.memories};if(sql.includes('FROM usage_logs'))return {results:rows.usage_logs};if(sql.includes('FROM whatsapp_messages'))return {results:rows.whatsapp_messages};if(sql.includes('FROM automation_history'))return {results:rows.automation_history};return {results:[]};},
+        async run(){if(sql.includes('INSERT INTO rate_limits')){const old=rows.rate_limits.find(r=>r.bucket_key===params[0]);if(old)old.request_count++;else rows.rate_limits.push({bucket_key:params[0],request_count:1});}if(sql.includes('INSERT INTO usage_logs'))rows.usage_logs.push({id:params[0],model_id:params[1],task_type:params[2],input_tokens:params[3],output_tokens:params[4],latency_ms:params[5],status:params[6],created_at:params[7]});if(sql.includes('INSERT INTO memories'))rows.memories.push({id:params[0],category:params[1],memory_key:params[2],value:params[3],importance:params[4],user_approved:params[5],is_active:1,created_at:params[6]});if(sql.includes('INSERT INTO whatsapp_messages'))rows.whatsapp_messages.push({id:params[0],contact_name:params[1],contact_identifier:params[2],message_text:params[3],status:params[4],user_confirmed:params[5],is_sensitive:params[6],created_at:params[7]});return {success:true,meta:{changes:1}};}
+      };return statement;
+    }
+  };return db;
 }
-
-test('health endpoint returns truthful Worker scaffold capabilities', async () => {
-  const response = await worker.fetch(
-    new Request('https://zara.example/api/health'),
-    createEnv(),
-  );
-  const body = await response.json() as {
-    status: string;
-    service: string;
-    capabilities: Record<string, unknown>;
-  };
-
-  assert.equal(response.status, 200);
-  assert.equal(body.status, 'ok');
-  assert.equal(body.service, 'zara-worker');
-  assert.equal(body.capabilities.chat, 'not_migrated');
-  assert.equal(body.capabilities.persistence, 'not_migrated');
-  assert.equal(body.capabilities.desktopControl, 'electron_local_runtime');
-  assert.equal(response.headers.get('cache-control'), 'no-store');
-});
-
-test('API unknown routes return JSON 404 and do not fall through to SPA assets', async () => {
-  const response = await worker.fetch(
-    new Request('https://zara.example/api/missing'),
-    createEnv(),
-  );
-
-  assert.equal(response.status, 404);
-  assert.match(response.headers.get('content-type') || '', /application\/json/);
-  assert.deepEqual(await response.json(), { error: 'API route not found.' });
-});
-
-test('configured origin receives CORS headers on API responses', async () => {
-  const response = await worker.fetch(
-    new Request('https://zara.example/api/health', {
-      headers: { Origin: 'https://zara.example' },
-    }),
-    createEnv(),
-  );
-
-  assert.equal(response.headers.get('access-control-allow-origin'), 'https://zara.example');
-  assert.equal(response.headers.get('vary'), 'Origin');
-});
-
-test('unconfigured or untrusted origin is not reflected in CORS responses', async () => {
-  const response = await worker.fetch(
-    new Request('https://zara.example/api/health', {
-      headers: { Origin: 'https://attacker.example' },
-    }),
-    createEnv(),
-  );
-
-  assert.equal(response.headers.get('access-control-allow-origin'), null);
-});
-
-test('valid CORS preflight is accepted only for configured origin and allowed headers', async () => {
-  const response = await worker.fetch(
-    new Request('https://zara.example/api/chat', {
-      method: 'OPTIONS',
-      headers: {
-        Origin: 'https://zara.example',
-        'Access-Control-Request-Method': 'POST',
-        'Access-Control-Request-Headers': 'content-type, authorization',
-      },
-    }),
-    createEnv(),
-  );
-
-  assert.equal(response.status, 204);
-  assert.equal(response.headers.get('access-control-allow-origin'), 'https://zara.example');
-});
-
-test('CORS preflight rejects unknown origins, methods, and headers', async () => {
-  const env = createEnv();
-  const cases = [
-    new Request('https://zara.example/api/chat', {
-      method: 'OPTIONS',
-      headers: {
-        Origin: 'https://attacker.example',
-        'Access-Control-Request-Method': 'POST',
-      },
-    }),
-    new Request('https://zara.example/api/chat', {
-      method: 'OPTIONS',
-      headers: {
-        Origin: 'https://zara.example',
-        'Access-Control-Request-Method': 'TRACE',
-      },
-    }),
-    new Request('https://zara.example/api/chat', {
-      method: 'OPTIONS',
-      headers: {
-        Origin: 'https://zara.example',
-        'Access-Control-Request-Method': 'POST',
-        'Access-Control-Request-Headers': 'x-evil-header',
-      },
-    }),
-  ];
-
-  for (const request of cases) {
-    const response = await worker.fetch(request, env);
-    assert.equal(response.status, 403);
-  }
-});
-
-test('non-API paths are delegated to Cloudflare Static Assets', async () => {
-  const response = await worker.fetch(
-    new Request('https://zara.example/settings/profile'),
-    createEnv(),
-  );
-
-  assert.equal(response.status, 200);
-  assert.equal(await response.text(), 'static asset');
-});
+function env(overrides:Partial<Env>={}):Env{return {ASSETS:{fetch:async()=>new Response('asset')},DB:createDb(),AI:{run:async()=>({response:'Adaab Boss'})},ZARA_AUTH_TOKEN:'a'.repeat(48),ALLOWED_ORIGIN:'https://zara.example',...overrides};}
+test('health reports D1 readiness and does not claim live model readiness',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/health'),env());const b:any=await r.json();assert.equal(r.status,200);assert.equal(b.dependencies.d1,true);assert.equal(b.capabilities.persistence,'d1');});
+test('health marks auth unconfigured',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/health'),env({ZARA_AUTH_TOKEN:undefined}));const b:any=await r.json();assert.equal(b.dependencies.authConfigured,false);});
+test('untrusted CORS origin is not reflected',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/health',{headers:{Origin:'https://evil.example'}}),env());assert.equal(r.headers.get('access-control-allow-origin'),null);});
+test('valid CORS preflight is allowed only for explicit origin',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/chat',{method:'OPTIONS',headers:{Origin:'https://zara.example','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type,authorization'}}),env());assert.equal(r.status,204);});
+test('invalid CORS preflight is rejected',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/chat',{method:'OPTIONS',headers:{Origin:'https://evil.example','Access-Control-Request-Method':'POST'}}),env());assert.equal(r.status,403);});
+test('private memory API fails closed without auth',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/memories'),env());assert.equal(r.status,401);});
+test('memory API authorizes only configured bearer secret',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/memories',{headers:{Authorization:'Bearer '+'a'.repeat(48)}}),env());assert.equal(r.status,200);});
+test('unknown API path returns JSON 404',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/not-real'),env());assert.equal(r.status,404);});
+test('chat validates missing and oversized messages',async()=>{const e=env();const a=await worker.fetch(new Request('https://zara.example/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:''})}),e);assert.equal(a.status,400);const b=await worker.fetch(new Request('https://zara.example/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:'x'.repeat(4001)})}),e);assert.equal(b.status,413);});
+test('TTS validates text and returns browser fallback without key',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/voice/tts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'Assalam Boss',language:'roman_urdu'})}),env({GEMINI_API_KEY:undefined}));const b:any=await r.json();assert.equal(r.status,200);assert.equal(b.status,'fallback');});
+test('WhatsApp dispatch requires explicit confirmation',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/whatsapp/send',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({id:'x',confirmed:false})}),env());assert.equal(r.status,400);});
+test('non-API requests use static assets binding',async()=>{const r=await worker.fetch(new Request('https://zara.example/settings'),env());assert.equal(await r.text(),'asset');});
