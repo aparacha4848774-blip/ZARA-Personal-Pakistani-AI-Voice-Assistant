@@ -310,3 +310,40 @@ Before staging Worker deployment, configure these secrets/variables in the Cloud
 The Gemini model IDs above are listed as current stable model endpoints in the official Gemini API model catalogue. Urdu/Roman Urdu output and TTS must still pass listening/quality tests before production. Workers AI invocation may incur usage charges, including during local development.
 
 The Cloudflare account currently has a D1 staging database but no deployed Worker, no KV namespace, and no production DNS changes. Do not claim production readiness until a staging Worker is deployed and end-to-end tests pass.
+
+
+## 13. Staging deployment workflow
+
+A manual-only workflow is available at `.github/workflows/deploy-staging.yml`. It deploys only the isolated Worker named `zara-personal-pakistani-ai-voice-assistant-staging` and does not configure production DNS or the main branch.
+
+Before manually running it, add these GitHub Actions repository secrets:
+
+- `CLOUDFLARE_API_TOKEN` — token with Workers Scripts edit, D1 read/write, and Worker secrets edit permissions for this account.
+- `CLOUDFLARE_ACCOUNT_ID` — the Cloudflare account ID.
+- `ZARA_AUTH_TOKEN` — a unique random owner password (at least 32 characters).
+- `GEMINI_API_KEY` — optional; if absent, the Worker attempts Workers AI fallback.
+- `WHATSAPP_API_TOKEN` — optional; only needed for real WhatsApp Cloud API dispatch.
+
+Optional GitHub Actions variable:
+- `WHATSAPP_PHONE_NUMBER_ID` — official Meta Cloud API phone-number ID.
+
+The workflow runs tests, TypeScript, Vite build and Wrangler dry-run before uploading secrets and deploying the staging Worker. Do not paste secret values into chat, commits, or issue comments. The deployment workflow has not been run because these external credentials are not present in the connected account session.
+
+## 14. Current D1 staging row counts
+
+Verified directly against the APAC staging database after the initial import:
+
+| Table | Rows |
+|---|---:|
+| settings | 1 |
+| memories | 3 |
+| whatsapp_messages | 0 |
+| automation_history | 0 |
+| usage_logs | 0 |
+| rate_limits | 0 |
+| memory_backups | 0 |
+| conversations | 0 |
+| conversation_messages | 0 |
+
+Only the settings record and three active, user-approved owner memories were imported. Synthetic WhatsApp test records and diagnostic/test usage/automation records were intentionally excluded. The original JSON source remains unchanged in the migration branch for rollback/reference.
+
