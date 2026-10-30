@@ -3,6 +3,16 @@ import { Message } from '../types/zara.types.ts';
 import { EmotionType } from '../logic/emotionRules.ts';
 import { apiFetch } from '../utils/apiClient.ts';
 
+const ACTIVE_CONVERSATION_KEY = 'zara-active-conversation-id';
+function getSavedConversationId(): string {
+  if (typeof window === 'undefined') return 'session-default';
+  try {
+    return window.localStorage.getItem(ACTIVE_CONVERSATION_KEY) || 'session-default';
+  } catch {
+    return 'session-default';
+  }
+}
+
 interface ConversationStoreState {
   messages: Message[];
   activeConversationId: string;
@@ -16,11 +26,13 @@ interface ConversationStoreState {
   loadInitialMessages: () => Promise<void>;
 }
 
+const initialConversationId = getSavedConversationId();
+
 export const useConversationStore = create<ConversationStoreState>((set, get) => ({
   messages: [
     {
       id: 'init-1',
-      conversationId: 'session-default',
+      conversationId: initialConversationId,
       role: 'zara',
       content: 'Arre Boss! Kya chal raha hai? Batao!',
       language: 'roman_urdu',
@@ -31,7 +43,7 @@ export const useConversationStore = create<ConversationStoreState>((set, get) =>
       createdAt: new Date().toISOString(),
     },
   ],
-  activeConversationId: 'session-default',
+  activeConversationId: initialConversationId,
   isProcessing: false,
   transcriptDraft: '',
 
@@ -70,6 +82,7 @@ export const useConversationStore = create<ConversationStoreState>((set, get) =>
 
   clearHistory: () => {
     const conversationId = 'session-' + Date.now();
+    try { window.localStorage.setItem(ACTIVE_CONVERSATION_KEY, conversationId); } catch { /* local persistence is optional */ }
     set({
       activeConversationId: conversationId,
       messages: [
