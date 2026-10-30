@@ -10,9 +10,9 @@ function createDb() {
       let params:any[]=[];
       const statement:any={
         bind(...args:any[]){params=args;return statement;},
-        async first(){if(sql.includes('SELECT 1'))return {ok:1};if(sql.includes('SELECT data_json'))return null;if(sql.includes('SELECT * FROM memories WHERE'))return rows.memories.find(r=>r.id===params[0])||null;if(sql.includes('SELECT request_count'))return rows.rate_limits.find(r=>r.bucket_key===params[0])||null;return null;},
+        async first(){if(sql.includes('SELECT 1'))return {ok:1};if(sql.includes('SELECT data_json'))return null;if(sql.includes('SELECT * FROM memories WHERE'))return rows.memories.find(r=>r.id===params[0])||null;if(sql.includes('SELECT * FROM whatsapp_messages WHERE'))return rows.whatsapp_messages.find(r=>r.id===params[0])||null;if(sql.includes('SELECT request_count'))return rows.rate_limits.find(r=>r.bucket_key===params[0])||null;return null;},
         async all(){if(sql.includes('FROM memories'))return {results:rows.memories};if(sql.includes('FROM usage_logs'))return {results:rows.usage_logs};if(sql.includes('FROM whatsapp_messages'))return {results:rows.whatsapp_messages};if(sql.includes('FROM automation_history'))return {results:rows.automation_history};return {results:[]};},
-        async run(){if(sql.includes('INSERT INTO rate_limits')){const old=rows.rate_limits.find(r=>r.bucket_key===params[0]);if(old)old.request_count++;else rows.rate_limits.push({bucket_key:params[0],request_count:1});}if(sql.includes('INSERT INTO usage_logs'))rows.usage_logs.push({id:params[0],model_id:params[1],task_type:params[2],input_tokens:params[3],output_tokens:params[4],latency_ms:params[5],status:params[6],created_at:params[7]});if(sql.includes('INSERT INTO memories'))rows.memories.push({id:params[0],category:params[1],memory_key:params[2],value:params[3],importance:params[4],user_approved:params[5],is_active:1,created_at:params[6]});if(sql.includes('INSERT INTO whatsapp_messages'))rows.whatsapp_messages.push({id:params[0],contact_name:params[1],contact_identifier:params[2],message_text:params[3],status:params[4],user_confirmed:params[5],is_sensitive:params[6],created_at:params[7]});return {success:true,meta:{changes:1}};}
+        async run(){let changes=1;if(sql.includes('INSERT INTO rate_limits')){const old=rows.rate_limits.find(r=>r.bucket_key===params[0]);if(old)old.request_count++;else rows.rate_limits.push({bucket_key:params[0],request_count:1});}if(sql.includes('INSERT INTO usage_logs'))rows.usage_logs.push({id:params[0],model_id:params[1],task_type:params[2],input_tokens:params[3],output_tokens:params[4],latency_ms:params[5],status:params[6],created_at:params[7]});if(sql.includes('INSERT INTO memories'))rows.memories.push({id:params[0],category:params[1],memory_key:params[2],value:params[3],importance:params[4],user_approved:params[5],is_active:1,created_at:params[6]});if(sql.includes('INSERT INTO whatsapp_messages'))rows.whatsapp_messages.push({id:params[0],contact_name:params[1],contact_identifier:params[2],message_text:params[3],status:params[4],user_confirmed:params[5],is_sensitive:params[6],created_at:params[7]});if(sql.includes("UPDATE whatsapp_messages SET status='confirmed'")){const row=rows.whatsapp_messages.find(r=>r.id===params[0]);if(row&&row.status==='pending'&&row.user_confirmed===0){row.status='confirmed';row.user_confirmed=1;}else changes=0;}if(sql.includes('UPDATE whatsapp_messages SET status=?,user_confirmed=1')){const row=rows.whatsapp_messages.find(r=>r.id===params[3]);if(row){row.status=params[0];row.user_confirmed=params[1];row.sent_at=params[2];row.provider_message_id=params[3];}}if(sql.includes("UPDATE whatsapp_messages SET status='pending'")){const row=rows.whatsapp_messages.find(r=>r.id===params[0]);if(row){row.status='pending';row.user_confirmed=0;}}return {success:true,meta:{changes}};}
       };return statement;
     }
   };return db;
@@ -71,4 +71,25 @@ test('authenticated chat uses Workers AI fallback and records a usage entry',asy
  assert.equal(body.response,'Adaab Boss');
  assert.equal(body.providerStatus,'fallback');
  assert.equal(body.modelUsed,'@cf/google/gemma-4-26b-a4b-it');
+});
+
+test('WhatsApp dispatch is idempotent after a successful send',async()=>{
+ const e=env({WHATSAPP_API_TOKEN:'test-token',WHATSAPP_PHONE_NUMBER_ID:'123456'});
+ const auth={Authorization:'Bearer '+'a'.repeat(48)};
+ const draft=await worker.fetch(new Request('https://zara.example/api/whatsapp/draft',{method:'POST',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({contactName:'Test',contactIdentifier:'+923001234567',messageText:'Hello'})}),e);
+ assert.equal(draft.status,201);
+ const draftBody:any=await draft.json();
+ const originalFetch=globalThis.fetch;
+ let providerCalls=0;
+ globalThis.fetch=async()=>{providerCalls++;return new Response(JSON.stringify({messages:[{id:'wamid.test'}]}),{status:200,headers:{'content-type':'application/json'}});};
+ try {
+  const makeRequest=()=>new Request('https://zara.example/api/whatsapp/send',{method:'POST',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({id:draftBody.draft.id,confirmed:true})});
+  const first=await worker.fetch(makeRequest(),e);
+  assert.equal(first.status,200);
+  const second=await worker.fetch(makeRequest(),e);
+  const result:any=await second.json();
+  assert.equal(second.status,200);
+  assert.equal(result.idempotent,true);
+  assert.equal(providerCalls,1);
+ } finally { globalThis.fetch=originalFetch; }
 });
