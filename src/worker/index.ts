@@ -66,7 +66,8 @@ function authorized(request: Request, env: Env): boolean {
   const custom = request.headers.get('X-ZARA-AUTH')?.trim();
   const cookie = request.headers.get('Cookie') || '';
   const session = cookie.split(';').map((v) => v.trim()).find((v) => v.startsWith('zara_session='));
-  let cookieToken = '';\n  try { cookieToken = session ? decodeURIComponent(session.slice('zara_session='.length)) : ''; } catch { cookieToken = ''; }
+  let cookieToken = '';
+  try { cookieToken = session ? decodeURIComponent(session.slice('zara_session='.length)) : ''; } catch { cookieToken = ''; }
   const candidates = [bearer, custom, cookieToken].filter((value): value is string => Boolean(value));
   return candidates.some((supplied) => {
     if (supplied.length !== expected.length) return false;
