@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Generate Cloudflare binding types
+        run: npm run worker:types
+
       - name: Run application and Worker tests
         run: npm test
 
