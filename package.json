@@ -9,7 +9,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx --test src/logic/logic.test.ts",
+    "test": "tsx --test src/logic/logic.test.ts src/worker/index.test.ts",
+    "worker:test": "tsx --test src/worker/index.test.ts",
+    "worker:dev": "wrangler dev",
+    "worker:dry-run": "wrangler deploy --dry-run",
     "electron:dev": "electron electron/main.cjs",
     "lint": "tsc --noEmit"
   },
@@ -35,6 +38,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
-    "@types/express": "^4.17.21"
+    "@types/express": "^4.17.21",
+    "wrangler": "4.156.0"
   }
 }
