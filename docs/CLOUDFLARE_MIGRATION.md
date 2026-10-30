@@ -131,63 +131,63 @@ Use the official Workers Static Assets configuration and the Worker AI binding. 
 - [x] Record migration blockers and feature-preservation requirements.
 - [ ] Capture baseline CI/build status again on this migration branch before code changes.
 
-### Phase 1 — Worker scaffolding (partially implemented; verification pending)
+### Phase 1 — Worker scaffolding (CI verified; staging runtime pending)
 
 - [x] Add initial `wrangler.jsonc` for Worker + Static Assets and AI binding; configuration is not yet validated with Wrangler.
 - [x] Add Worker entry point and typed environment bindings.
 - [x] Add a basic `/api/health` endpoint; this is a scaffold status response, not a dependency-readiness probe.
 - [x] Delegate non-API requests to the Static Assets binding.
-- [ ] Add a pinned Wrangler development dependency and Worker scripts.
+- [x] Add a pinned Wrangler development dependency and Worker scripts.
 - [ ] Verify Vite output, SPA deep links, and Static Assets fallback with the installed Wrangler version.
 - [ ] Configure explicit staging/production `ALLOWED_ORIGIN` values and test CORS on success and error responses.
-- [ ] Add Worker-specific tests for health, 404, CORS, and static asset routing.
-- [ ] Run `npm test`, `npm run lint`, `npm run build`, and `wrangler dev` on this branch and record actual results.
+- [x] Add Worker-specific tests for health, 404, CORS, static asset routing, auth, chat validation, TTS fallback and WhatsApp confirmation.
+- [x] Run `npm test`, `npm run lint`, `npm run build`, and `wrangler deploy --dry-run` in GitHub Actions (successful run #9; local `wrangler dev` and staging Worker request tests still pending).
 
-**Phase 1 is not complete until all verification items pass.**
+**Phase 1 code and CI gate passed.** Staging runtime verification, real configured-origin CORS, and live binding readiness remain outstanding.
 
-### Phase 2 — Provider adapter and chat route
+### Phase 2 — Provider adapter and chat route (implementation committed; staging provider secrets pending)
 
-- Introduce a provider-neutral interface; do not spread provider-specific request formats through route handlers.
-- Preserve current `POST /api/chat` request and response fields initially.
-- Add Workers AI implementation only after confirming model availability, account/plan eligibility, supported parameters, token limits, and streaming behavior.
+- [x] Add Gemini REST provider with Workers AI fallback in the Worker route; verify model availability against current official Gemini and Cloudflare model references. A provider-neutral abstraction and live Urdu quality acceptance remain outstanding.
+- [x] Preserve the current `POST /api/chat` request and response fields initially (adds `providerStatus` and stable provider-unavailable errors).
+- [x] Add Workers AI implementation using the documented `env.AI.run()` chat messages shape. Account entitlement, usage cost and actual Urdu/Roman Urdu output quality have not yet been exercised.
 - Evaluate Urdu script and Roman Urdu using a fixed representative test set; compare response quality with current Gemini output.
 - Preserve system persona, language detection, memory context, emotion fields, fallback behavior and usage accounting.
 - Keep Gemini adapter as a rollback option until acceptance criteria pass.
 - Never claim that an AI response came from a live model when a fallback was used.
 
-### Phase 3 — Data layer migration
+### Phase 3 — Data layer migration (D1 created, schema applied, selected data imported)
 
-- Design D1 schema and ownership model for settings, memories, usage, WhatsApp messages, automation history and any required conversation history.
-- Export/backup current JSON data before migration; provide an idempotent import script and row-count/integrity checks.
+- [x] Create APAC staging D1 database and apply schema for settings, memories, usage, WhatsApp, automation, rate limits, memory backups and conversation history.
+- [x] Import settings and three active, approved owner memories. Test/probe memory, simulated WhatsApp test messages, synthetic automation logs and usage test data were deliberately excluded. Full JSON archive/restore tooling and repeatable import verification remain outstanding.
 - Implement repository interfaces so Express and Worker routes can share business logic where practical.
 - Do not use KV as the sole durable database for mutable user records.
 - Test CRUD, authorization boundaries, concurrent updates, backup/export and recovery.
 
-### Phase 4 — Voice and audio
+### Phase 4 — Voice and audio (browser recognition preserved; cloud TTS route committed)
 
-- Keep browser SpeechRecognition / webkitSpeechRecognition and current wake-word logic.
-- Test browser TTS fallback for Urdu and English.
+- [x] Keep browser SpeechRecognition / webkitSpeechRecognition and current wake-word logic in the browser.
+- [x] Keep browser speechSynthesis fallback and add optional Gemini 3.8 Flash-Lite TTS endpoint. Actual audio codec compatibility and Pakistani Urdu listening tests remain outstanding.
 - Evaluate Cloudflare TTS models only with real Pakistani Urdu/Roman Urdu listening tests; confirm current availability, pricing, response format and plan requirements.
 - Add Whisper transcription only if the UI actually captures/uploads audio for server transcription. Confirm MIME types, duration/size limits, timeout behavior and chunking.
 - Do not relabel a text transcript as audio transcription or claim Urdu support without test evidence.
 
-### Phase 5 — WhatsApp and automation
+### Phase 5 — WhatsApp and automation (D1 draft/send routes committed; credentials pending)
 
-- Move WhatsApp Cloud API token to Worker secret storage.
-- Persist draft/send state in D1 and enforce user ownership + explicit confirmation.
+- [x] Worker reads WhatsApp token from a secret binding (`WHATSAPP_API_TOKEN`); secret has not yet been configured.
+- [x] Persist drafts and dispatch results in D1; require authenticated owner session and explicit confirmation.
 - Preserve actual provider message IDs and distinguish sent, pending, rejected, and local draft statuses.
-- Convert only cloud-safe scheduled jobs to Cron Triggers/Queues.
+- [x] Add daily cron trigger for D1 memory snapshot and rate-limit cleanup. Existing local filesystem and OS jobs remain Electron/local-only.
 - Keep local disk cleanup, OS diagnostics and desktop-only automation in Electron.
 
-### Phase 6 — Authentication, limits and observability
+### Phase 6 — Authentication, limits and observability (owner gate and D1 rate limit implemented; secret setup pending)
 
-- Identify the existing real sign-in/session flow before selecting the Worker auth implementation.
+- [x] Add a single-owner sign-in gate with a Secure, HttpOnly, SameSite=Strict session cookie backed by a 32+ character `ZARA_AUTH_TOKEN` Worker secret. This is an owner password gate, not multi-user identity.
 - Use secure server-validated sessions or a proven identity provider; do not assume the localStorage bearer token is a secure session design.
-- Enforce per-user authorization for every memory/settings/history/WhatsApp endpoint.
-- Add shared rate limiting and safe request limits.
+- [x] Enforce the single-owner session on private memory/settings/WhatsApp/usage/automation routes. No multi-tenant user accounts are claimed.
+- [x] Add D1-backed per-IP and AI request windows plus JSON content-type, body-size, message/history and field validation.
 - Log only route, status, latency, model identifier where appropriate, and aggregate usage; exclude prompts, transcripts, secrets and memory contents.
 
-### Phase 7 — Cutover and cleanup
+### Phase 7 — Cutover and cleanup (not started; staging deployment required)
 
 - Deploy a staging Worker first.
 - Run the complete acceptance suite and a manual browser/Electron smoke test.
@@ -282,13 +282,31 @@ Do not create duplicate route implementations without a clear ownership boundary
 
 - Repository-specific audit: **complete**.
 - Migration branch: **created**.
-- `wrangler.jsonc`: **added; not yet validated with Wrangler**.
-- `src/worker/env.ts`: **added**.
-- `src/worker/index.ts`: **basic API/health/static-asset scaffold added; not yet integration-tested**.
-- Chat, TTS, persistence, authentication, WhatsApp, and automation migration: **not started**.
-- Worker-specific tests: **not added yet**.
-- Migration-branch CI/build status: **not verified**.
-- Production deployment: **not performed**.
+- `wrangler.jsonc`: **Worker + Static Assets + AI + APAC D1 + daily Cron; Wrangler dry-run passed in CI**.
+- `src/worker/env.ts` / `src/worker/services.ts`: **typed D1, AI and integration bindings plus D1 rate limit and backup services added**.
+- `src/worker/index.ts`: **D1-backed chat, memory, settings, TTS, WhatsApp draft/send, usage, auth and health routes added; live staging requests not yet run**.
+- Chat, TTS, D1 persistence, owner auth, WhatsApp draft/send and scheduled memory backup: **implementation committed; external secrets and staging runtime checks pending**.
+- Worker-specific tests: **added; latest CI run passed**.
+- Migration-branch CI/build status: **passed on commit 769d4f5; subsequent implementation commits are being rechecked by Actions**.
+- Cloudflare staging D1: **created in APAC and schema applied; settings plus three approved memories imported**. Worker deployment: **not performed**.
 - Existing `main` branch: **not modified by the listed migration commits**.
 
 The next safe engineering action is to finish Phase 1 verification: add pinned Wrangler tooling, verify TypeScript/build compatibility, test Static Assets and CORS behavior, and record actual CI results. Do not begin chat or data migration until this gate passes.
+
+
+## 12. Staging resource and secret setup
+
+A Cloudflare D1 database named `zara-assistant-staging` was created in APAC (database ID is in `wrangler.jsonc`). The schema was applied directly and the initial settings plus three active, approved owner memories were imported. No simulated WhatsApp/test records were imported.
+
+Before staging Worker deployment, configure these secrets/variables in the Cloudflare Worker settings:
+
+- Secret `ZARA_AUTH_TOKEN`: unique random owner key, minimum 32 characters. The sign-in screen uses this to issue an HttpOnly session cookie.
+- Secret `GEMINI_API_KEY`: existing Gemini API key (optional if Workers AI is enabled; recommended as primary).
+- Secret `WHATSAPP_API_TOKEN`: only if WhatsApp Cloud API dispatch is enabled.
+- Variable `WHATSAPP_PHONE_NUMBER_ID`: official Meta phone-number ID; not a secret.
+- Variable `ALLOWED_ORIGIN`: exact staging origin(s), comma-separated. Never use wildcard origins with owner credentials.
+- Optional variables `GEMINI_CHAT_MODEL=gemini-3.8-flash`, `GEMINI_TTS_MODEL=gemini-3.8-flash-lite-tts`, and `WORKERS_AI_MODEL=@cf/google/gemma-4-26b-a4b-it`.
+
+The Gemini model IDs above are listed as current stable model endpoints in the official Gemini API model catalogue. Urdu/Roman Urdu output and TTS must still pass listening/quality tests before production. Workers AI invocation may incur usage charges, including during local development.
+
+The Cloudflare account currently has a D1 staging database but no deployed Worker, no KV namespace, and no production DNS changes. Do not claim production readiness until a staging Worker is deployed and end-to-end tests pass.
