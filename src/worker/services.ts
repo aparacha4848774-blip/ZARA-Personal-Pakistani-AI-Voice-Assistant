@@ -28,12 +28,17 @@ export async function checkRateLimit(
 export async function cleanupRateLimits(db: D1Database): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   await db.prepare('DELETE FROM rate_limits WHERE expires_at < ?').bind(now).run();
+  const usageCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  await db.prepare('DELETE FROM usage_logs WHERE created_at < ?').bind(usageCutoff).run();
 }
 
 export async function createMemoryBackup(db: D1Database): Promise<number> {
   const result = await db.prepare('SELECT * FROM memories ORDER BY created_at').all<Record<string, unknown>>();
   const rows = result.results ?? [];
+  const createdAt = new Date().toISOString();
   await db.prepare('INSERT INTO memory_backups (id, created_at, memory_count, payload_json) VALUES (?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), new Date().toISOString(), rows.length, JSON.stringify(rows)).run();
+    .bind(crypto.randomUUID(), createdAt, rows.length, JSON.stringify(rows)).run();
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  await db.prepare('DELETE FROM memory_backups WHERE created_at < ?').bind(cutoff).run();
   return rows.length;
 }
