@@ -17,6 +17,7 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       WHATSAPP_API_TOKEN: ${{ secrets.WHATSAPP_API_TOKEN }}
       WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
+      ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
     steps:
       - name: Checkout migration branch
         uses: actions/checkout@v4
@@ -28,7 +29,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate required deployment secrets
+      - name: Validate required deployment secrets and variables
         shell: bash
         run: |
           set -euo pipefail
@@ -36,6 +37,8 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID GitHub secret"; exit 1; }
           test -n "$ZARA_AUTH_TOKEN" || { echo "Missing ZARA_AUTH_TOKEN GitHub secret"; exit 1; }
           test "${#ZARA_AUTH_TOKEN}" -ge 32 || { echo "ZARA_AUTH_TOKEN must be at least 32 characters"; exit 1; }
+          test -n "$ALLOWED_ORIGIN" || { echo "Missing ALLOWED_ORIGIN GitHub Actions variable (exact staging origin, including https://)"; exit 1; }
+          case "$ALLOWED_ORIGIN" in https://*) ;; *) echo "ALLOWED_ORIGIN must use HTTPS"; exit 1;; esac
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -60,5 +63,11 @@ jobs:
         run: npx wrangler d1 migrations apply zara-assistant-staging --remote
 
       - name: Deploy staging Worker only
-        run: npx wrangler deploy
-
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--var "ALLOWED_ORIGIN:$ALLOWED_ORIGIN")
+          if [ -n "$WHATSAPP_PHONE_NUMBER_ID" ]; then
+            args+=(--var "WHATSAPP_PHONE_NUMBER_ID:$WHATSAPP_PHONE_NUMBER_ID")
+          fi
+          npx wrangler deploy "${args[@]}"
