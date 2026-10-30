@@ -349,7 +349,11 @@ export default {
       const origin=originAllowed(request,env);
       const limit=await checkRateLimit(env.DB,`ip:${getClientKey(request)}`,120,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
       if(!limit.allowed)return json({error:'Rate limit exceeded.',status:'rate_limited',retryAfterSeconds:limit.retryAfterSeconds},429,corsHeaders(origin));
-      if(url.pathname==='/api/auth/session') {\n        const loginLimit=await checkRateLimit(env.DB,`login:${getClientKey(request)}`,5,300).catch(()=>({allowed:false,retryAfterSeconds:300}));\n        if(!loginLimit.allowed)return json({error:'Too many login attempts. Try again later.'},429,corsHeaders(origin));\n      }\n      if(url.pathname==='/api/chat'||url.pathname==='/api/voice/tts') {
+      if(url.pathname==='/api/auth/session') {
+        const loginLimit=await checkRateLimit(env.DB,`login:${getClientKey(request)}`,5,300).catch(()=>({allowed:false,retryAfterSeconds:300}));
+        if(!loginLimit.allowed)return json({error:'Too many login attempts. Try again later.'},429,corsHeaders(origin));
+      }
+      if(url.pathname==='/api/chat'||url.pathname==='/api/voice/tts') {
         const specific=await checkRateLimit(env.DB,`ai:${getClientKey(request)}`,30,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
         if(!specific.allowed)return json({error:'AI rate limit exceeded.',status:'rate_limited',retryAfterSeconds:specific.retryAfterSeconds},429,corsHeaders(origin));
       }
