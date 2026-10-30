@@ -275,7 +275,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
   if(path==='/api/whatsapp/messages'&&method==='GET') {
     const rows=await env.DB.prepare('SELECT * FROM whatsapp_messages ORDER BY created_at DESC LIMIT 200').all<Json>();
-    return json({messages:(rows.results||[]).map(r=>({id:r.id,contactName:r.contact_name,contactIdentifier:r.contact_identifier,messageText:r.message_text,status:r.status,userConfirmed:Boolean(r.user_confirmed),isSensitive:Boolean(r.is_sensitive),sentAt:r.sent_at,createdAt:r.created_at}))});
+    return json({messages:(rows.results||[]).map((r: Json)=>({id:r.id,contactName:r.contact_name,contactIdentifier:r.contact_identifier,messageText:r.message_text,status:r.status,userConfirmed:Boolean(r.user_confirmed),isSensitive:Boolean(r.is_sensitive),sentAt:r.sent_at,createdAt:r.created_at}))});
   }
   if(path==='/api/whatsapp/draft'&&method==='POST') {
     const b=await readJson(request);
@@ -336,7 +336,7 @@ export default {
     }
     return env.ASSETS.fetch(request);
   },
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(_event: { cron: string }, env: Env, ctx: { waitUntil(promise: Promise<unknown>): void }): Promise<void> {
     ctx.waitUntil((async()=>{
       await createMemoryBackup(env.DB);
       await cleanupRateLimits(env.DB);
