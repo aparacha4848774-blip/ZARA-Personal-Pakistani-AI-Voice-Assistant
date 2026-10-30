@@ -28,7 +28,8 @@ class VoicePlaybackEngine {
     // If real base64 WAV audio from Gemini TTS was provided
     if (base64Audio) {
       try {
-        const audioSrc = `data:audio/wav;base64,${base64Audio}`;
+        const safeMime = /^audio\/[a-z0-9.+-]+$/i.test(audioMimeType) ? audioMimeType : 'audio/wav';
+        const audioSrc = `data:${safeMime};base64,${base64Audio}`;
         this.currentAudio = new Audio(audioSrc);
         this.currentAudio.playbackRate = voiceSpeed;
         this.currentAudio.volume = volume;
