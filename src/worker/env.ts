@@ -1,4 +1,9 @@
 export interface Env {
-  ASSETS: Fetcher;
-  AI: Ai;
+  ASSETS: {
+    fetch(request: Request): Promise<Response>;
+  };
+  AI: {
+    run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+  };
+  ALLOWED_ORIGIN?: string;
 }
