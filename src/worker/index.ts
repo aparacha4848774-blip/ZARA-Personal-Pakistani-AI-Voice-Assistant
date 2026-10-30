@@ -234,19 +234,31 @@ async function handleTts(request: Request, env: Env): Promise<Response> {
   if(!env.GEMINI_API_KEY) return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'Gemini TTS is not configured; use browser speech synthesis.'});
   const lang=['urdu','roman_urdu','english'].includes(body.language)?body.language:'roman_urdu';
   const voice=typeof body.voiceConfig?.voiceName==='string'?body.voiceConfig.voiceName:'Kore';
-  const style=typeof body.speechStyle==='string'?body.speechStyle.slice(0,500):'Warm, natural Pakistani conversational voice.';
-  const prompt=lang==='urdu'? `Speak naturally in Pakistani Urdu: ${body.text}`:lang==='english'?body.text:`Speak naturally in Pakistani Roman Urdu with Pakistani pronunciation: ${body.text}`;
+  const style=typeof body.speechStyle==='string'?body.speechStyle.slice(0,400):'Warm, natural Pakistani conversational voice.';
+  const regionalStyle=lang==='urdu'
+    ? `Speak in a natural Pakistani Urdu accent. ${style}`
+    : lang==='roman_urdu'
+      ? `This transcript is Roman Urdu. Pronounce it naturally as Pakistani Urdu; do not translate it. ${style}`
+      : `Speak in natural Pakistani English. ${style}`;
   const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
     method:'POST',headers:{'content-type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
-    body:JSON.stringify({contents:[{role:'user',parts:[{text:`${style}\n${prompt}`}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}}),
+    body:JSON.stringify({
+      contents:[{role:'user',parts:[{text:body.text.trim(),speech_metadata:{style:regionalStyle}}]}],
+      generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{voice}}},
+    }),
     signal:AbortSignal.timeout(25000),
   });
   const data=await response.json() as Json;
   const audio=data.candidates?.[0]?.content?.parts?.find((p:Json)=>p.inlineData?.data)?.inlineData;
   if(!response.ok||!audio?.data) return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'TTS provider unavailable; use browser speech synthesis.'});
-  const sampleRate = Number(String(audio.mimeType || '').match(/rate=(\d+)/i)?.[1] || 24000);
-  const wav = pcmToWavBase64(audio.data, Number.isFinite(sampleRate) ? sampleRate : 24000);
-  return json({audioBase64:wav,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
+  const audioMime=String(audio.mimeType||'audio/wav').toLowerCase();
+  if(audioMime.includes('wav')) return json({audioBase64:audio.data,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
+  if(audioMime.includes('l16')||audioMime.includes('pcm')) {
+    const sampleRate=Number(audioMime.match(/rate=(\\d+)/i)?.[1]||24000);
+    const wav=pcmToWavBase64(audio.data,Number.isFinite(sampleRate)?sampleRate:24000);
+    return json({audioBase64:wav,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
+  }
+  return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'Unsupported TTS audio format; use browser speech synthesis.'});
 }
 
 async function handleApi(request: Request, env: Env): Promise<Response> {
