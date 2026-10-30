@@ -19,7 +19,8 @@ class VoicePlaybackEngine {
     base64Audio?: string | null,
     voiceSpeed = 1.0,
     volume = 1.0,
-    language: 'roman_urdu' | 'english' | 'urdu' = 'roman_urdu'
+    language: 'roman_urdu' | 'english' | 'urdu' = 'roman_urdu',
+    audioMimeType = 'audio/wav'
   ) {
     this.stop();
     this.isSpeaking = true;
