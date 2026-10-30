@@ -6,6 +6,9 @@ const JSON_HEADERS = {
   'x-content-type-options': 'nosniff',
 };
 
+const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
+const ALLOWED_HEADERS = new Set(['content-type', 'authorization', 'x-zara-auth']);
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -15,10 +18,39 @@ function json(data: unknown, status = 200): Response {
 
 function getAllowedOrigin(request: Request, env: Env): string | null {
   const origin = request.headers.get('Origin');
-  const configured = (env as Env & { ALLOWED_ORIGIN?: string }).ALLOWED_ORIGIN;
+  const configured = env.ALLOWED_ORIGIN?.trim();
 
   if (!origin || !configured) return null;
   return origin === configured ? origin : null;
+}
+
+function handlePreflight(request: Request, env: Env): Response {
+  const origin = getAllowedOrigin(request, env);
+  const requestedMethod = request.headers.get('Access-Control-Request-Method')?.toUpperCase();
+  const requestedHeaders = (request.headers.get('Access-Control-Request-Headers') || '')
+    .split(',')
+    .map((header) => header.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (
+    !origin ||
+    !requestedMethod ||
+    !ALLOWED_METHODS.has(requestedMethod) ||
+    requestedHeaders.some((header) => !ALLOWED_HEADERS.has(header))
+  ) {
+    return new Response(null, { status: 403, headers: { vary: 'Origin' } });
+  }
+
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'access-control-allow-origin': origin,
+      'access-control-allow-methods': [...ALLOWED_METHODS].join(','),
+      'access-control-allow-headers': [...ALLOWED_HEADERS].join(','),
+      'access-control-max-age': '86400',
+      vary: 'Origin',
+    },
+  });
 }
 
 async function handleApi(request: Request, env: Env): Promise<Response> {
@@ -50,19 +82,7 @@ export default {
 
     if (url.pathname.startsWith('/api/')) {
       if (request.method === 'OPTIONS') {
-        const origin = getAllowedOrigin(request, env);
-        if (!origin) return new Response(null, { status: 403 });
-
-        return new Response(null, {
-          status: 204,
-          headers: {
-            'access-control-allow-origin': origin,
-            'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-            'access-control-allow-headers': 'Content-Type,Authorization,X-ZARA-AUTH',
-            'access-control-max-age': '86400',
-            vary: 'Origin',
-          },
-        });
+        return handlePreflight(request, env);
       }
 
       const response = await handleApi(request, env);
