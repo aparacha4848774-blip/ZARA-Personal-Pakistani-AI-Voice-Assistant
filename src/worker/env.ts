@@ -1,3 +1,5 @@
+import type { D1Database } from './d1.types';
+
 export interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
   DB: D1Database;
