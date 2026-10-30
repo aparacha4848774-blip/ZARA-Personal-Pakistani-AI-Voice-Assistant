@@ -12,68 +12,14 @@ interface ConversationStoreState {
   addMessage: (msg: Omit<Message, 'id' | 'createdAt'>) => Message;
   setProcessing: (isProcessing: boolean) => void;
   setTranscriptDraft: (text: string) => void;
-  clearHistory: () => void;
-  loadInitialMessages: () => void;
-}
-
-export const useConversationStore = create<ConversationStoreState>((set, get) => ({
-  messages: [
-    {
-      id: 'init-1',
-      conversationId: 'session-default',
-      role: 'zara',
-      content: 'Arre Boss! Kya chal raha hai? Batao!',
-      language: 'roman_urdu',
-      emotion: 'Happy' as EmotionType,
-      emotionIntensity: 85,
-      confidenceLevel: 'high',
-      modelUsed: 'gemini-2.0-flash',
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  activeConversationId: 'session-default',
-  isProcessing: false,
-  transcriptDraft: '',
-
-  addMessage: (msgData) => {
-    const newMessage: Message = {
-      ...msgData,
-      id: 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-      createdAt: new Date().toISOString(),
-    };
-
-    set((state) => ({
-      messages: [...state.messages, newMessage],
-    }));
-
-    void apiFetch('/api/conversations/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: newMessage.id,
-        conversationId: newMessage.conversationId,
-        role: newMessage.role,
-        content: newMessage.content,
-        language: newMessage.language,
-        modelUsed: newMessage.modelUsed,
-      }),
-    }).then((response) => {
-      if (!response.ok) console.warn('Conversation history was not persisted:', response.status);
-    }).catch((error) => console.warn('Conversation history persistence failed:', error));
-
-    return newMessage;
-  },
-
-  setProcessing: (isProcessing: boolean) => set({ isProcessing }),
-
-  setTranscriptDraft: (transcriptDraft: string) => set({ transcriptDraft }),
-
-  clearHistory: () =>
+  clearHistory: () => {
+    const conversationId = 'session-' + Date.now();
     set({
+      activeConversationId: conversationId,
       messages: [
         {
           id: 'init-fresh',
-          conversationId: 'session-' + Date.now(),
+          conversationId,
           role: 'zara',
           content: 'Arre Boss! Kya chal raha hai? Batao!',
           language: 'roman_urdu',
@@ -84,7 +30,8 @@ export const useConversationStore = create<ConversationStoreState>((set, get) =>
           createdAt: new Date().toISOString(),
         },
       ],
-    }),
+    });
+  },
 
   loadInitialMessages: async () => {
     const conversationId = get().activeConversationId;
