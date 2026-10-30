@@ -30,3 +30,21 @@ test('chat validates missing and oversized messages',async()=>{const e=env();con
 test('TTS validates text and returns browser fallback without key',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/voice/tts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'Assalam Boss',language:'roman_urdu'})}),env({GEMINI_API_KEY:undefined}));const b:any=await r.json();assert.equal(r.status,200);assert.equal(b.status,'fallback');});
 test('WhatsApp dispatch requires explicit confirmation',async()=>{const r=await worker.fetch(new Request('https://zara.example/api/whatsapp/send',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({id:'x',confirmed:false})}),env());assert.equal(r.status,400);});
 test('non-API requests use static assets binding',async()=>{const r=await worker.fetch(new Request('https://zara.example/settings'),env());assert.equal(await r.text(),'asset');});
+
+test('owner login sets an HttpOnly Secure SameSite session cookie',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/auth/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:'a'.repeat(48)})}),env());
+ assert.equal(response.status,200);
+ const cookie=response.headers.get('set-cookie')||'';
+ assert.match(cookie,/HttpOnly/i);assert.match(cookie,/Secure/i);assert.match(cookie,/SameSite=Strict/i);
+});
+test('HttpOnly owner session cookie grants private memory access',async()=>{
+ const e=env();
+ const login=await worker.fetch(new Request('https://zara.example/api/auth/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:'a'.repeat(48)})}),e);
+ const cookie=login.headers.get('set-cookie')||'';
+ const response=await worker.fetch(new Request('https://zara.example/api/memories',{headers:{Cookie:cookie.split(';')[0]}}),e);
+ assert.equal(response.status,200);
+});
+test('chat cannot expose saved owner memories to unauthenticated callers',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:'What do you remember about me?'})}),env());
+ assert.equal(response.status,401);
+});
