@@ -95,7 +95,7 @@ export async function processWhatsAppDispatch(
         }),
       });
 
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok && data.messages?.[0]?.id) {
         durableStorage.updateWhatsAppMessage(messageId, {
           status: 'sent',
