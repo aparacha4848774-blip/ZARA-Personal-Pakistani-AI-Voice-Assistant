@@ -41,6 +41,14 @@ The connected Cloudflare account contains the `zara-assistant-staging` D1 databa
 - Test the deployed health endpoint, login/session cookie, CORS, chat providers, D1 CRUD, voice/TTS, and WhatsApp only after its credentials are configured.
 - Complete browser and Electron smoke tests before any production cutover.
 
+## Supabase status
+
+The connected Supabase project is currently `INACTIVE`. The Cloudflare migration uses D1 as its application database; the Worker, package manifest, and Wrangler configuration do not require Supabase at runtime. Keep the legacy Supabase project inactive unless a separately approved rollback or data-export task requires it. Do not restore it merely to make the dashboard show an active status, because restoration may incur compute charges and would create a second, unused database.
+
+## CI verification status
+
+The CI workflow is configured for pushes and pull requests on both `main` and `cloudflare-workers-migration`, plus manual dispatch. At the time of this verification, GitHub reports no status checks and the available commit-workflow lookup returns no runs for the migration fix commit. Therefore the workflow definition is present, but a successful CI run is not yet proven. Run the workflow from the Actions tab and confirm all five steps pass before staging deployment.
+
 ## Safety
 
 The original `main` branch and existing Express/Electron runtime remain the rollback baseline. This branch does not remove desktop functionality or change production DNS.
