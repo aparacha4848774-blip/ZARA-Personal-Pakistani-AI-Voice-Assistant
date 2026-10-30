@@ -166,7 +166,10 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   const language = ['urdu','roman_urdu','english'].includes(body.language) ? body.language : settings.preferredLanguage;
   const memories = await getMemories(env);
   const contents = history.map((item:Json)=>({role:item.role==='zara'||item.role==='assistant'||item.role==='model'?'model':'user',parts:[{text:String(item.content||item.text).slice(0,4000)}]}));
-  contents.push({role:'user',parts:[{text:message.trim()}]});
+  const lastHistory = history[history.length - 1];
+  const alreadyIncludesCurrent = lastHistory && !['zara','assistant','model'].includes(lastHistory.role) &&
+    String(lastHistory.content || lastHistory.text || '').trim() === message.trim();
+  if (!alreadyIncludesCurrent) contents.push({role:'user',parts:[{text:message.trim()}]});
   const system = persona(language,memories,String(body.currentEmotion||'Confident').slice(0,40));
   const thinking = Boolean(body.highThinking || settings.highThinkingMode);
   const preferred = env.GEMINI_CHAT_MODEL || CHAT_MODEL;
