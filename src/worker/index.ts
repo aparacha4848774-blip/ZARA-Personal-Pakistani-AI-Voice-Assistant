@@ -375,7 +375,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       await env.DB.prepare("UPDATE whatsapp_messages SET status='pending',user_confirmed=0 WHERE id=? AND status='confirmed'").bind(b.id).run();
       return json({success:false,messageId:b.id,deliveryStatus:'failed',provider:'whatsapp_cloud_api',notice:'WhatsApp provider rejected the message. The draft is available for retry.'},502);
     }
-    await env.DB.prepare('UPDATE whatsapp_messages SET status=?,user_confirmed=1,sent_at=?,provider_message_id=? WHERE id=').bind('sent',new Date().toISOString(),data.messages[0].id,b.id).run();
+    await env.DB.prepare('UPDATE whatsapp_messages SET status=?,user_confirmed=1,sent_at=?,provider_message_id=? WHERE id=?').bind('sent',new Date().toISOString(),data.messages[0].id,b.id).run();
     return json({success:true,messageId:b.id,providerMessageId:data.messages[0].id,deliveryStatus:'sent',provider:'whatsapp_cloud_api',notice:'WhatsApp accepted the message for dispatch.'});
   }
   if(path==='/api/conversations/messages'&&method==='POST') {
