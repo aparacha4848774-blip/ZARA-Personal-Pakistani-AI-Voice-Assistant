@@ -237,7 +237,9 @@ async function handleTts(request: Request, env: Env): Promise<Response> {
   const data=await response.json() as Json;
   const audio=data.candidates?.[0]?.content?.parts?.find((p:Json)=>p.inlineData?.data)?.inlineData;
   if(!response.ok||!audio?.data) return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'TTS provider unavailable; use browser speech synthesis.'});
-  const sampleRate = Number(String(audio.mimeType || '').match(/rate=(\\d+)/i)?.[1] || 24000);\n  const wav = pcmToWavBase64(audio.data, Number.isFinite(sampleRate) ? sampleRate : 24000);\n  return json({audioBase64:wav,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
+  const sampleRate = Number(String(audio.mimeType || '').match(/rate=(\d+)/i)?.[1] || 24000);
+  const wav = pcmToWavBase64(audio.data, Number.isFinite(sampleRate) ? sampleRate : 24000);
+  return json({audioBase64:wav,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
 }
 
 async function handleApi(request: Request, env: Env): Promise<Response> {
