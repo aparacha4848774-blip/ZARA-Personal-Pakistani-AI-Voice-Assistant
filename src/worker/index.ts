@@ -53,9 +53,10 @@ function preflight(request: Request, env: Env): Response {
   return new Response(null, { status: 204, headers: corsHeaders(origin) });
 }
 
-function getClientKey(request: Request): string {
+async function getClientKey(request: Request): Promise<string> {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  return ip.slice(0, 80);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 
 function authorized(request: Request, env: Env): boolean {
@@ -65,7 +66,7 @@ function authorized(request: Request, env: Env): boolean {
   const custom = request.headers.get('X-ZARA-AUTH')?.trim();
   const cookie = request.headers.get('Cookie') || '';
   const session = cookie.split(';').map((v) => v.trim()).find((v) => v.startsWith('zara_session='));
-  const cookieToken = session ? decodeURIComponent(session.slice('zara_session='.length)) : '';
+  let cookieToken = '';\n  try { cookieToken = session ? decodeURIComponent(session.slice('zara_session='.length)) : ''; } catch { cookieToken = ''; }
   const candidates = [bearer, custom, cookieToken].filter((value): value is string => Boolean(value));
   return candidates.some((supplied) => {
     if (supplied.length !== expected.length) return false;
@@ -398,14 +399,14 @@ export default {
         corsHeaders(origin).forEach((v,k)=>headers.set(k,v));
         return new Response(health.body,{status:health.status,statusText:health.statusText,headers});
       }
-      const limit=await checkRateLimit(env.DB,`ip:${getClientKey(request)}`,120,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
+      const limit=await checkRateLimit(env.DB,`ip:${await getClientKey(request)}`,120,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
       if(!limit.allowed)return json({error:'Rate limit exceeded.',status:'rate_limited',retryAfterSeconds:limit.retryAfterSeconds},429,corsHeaders(origin));
       if(url.pathname==='/api/auth/session') {
-        const loginLimit=await checkRateLimit(env.DB,`login:${getClientKey(request)}`,5,300).catch(()=>({allowed:false,retryAfterSeconds:300}));
+        const loginLimit=await checkRateLimit(env.DB,`login:${await getClientKey(request)}`,5,300).catch(()=>({allowed:false,retryAfterSeconds:300}));
         if(!loginLimit.allowed)return json({error:'Too many login attempts. Try again later.'},429,corsHeaders(origin));
       }
       if(url.pathname==='/api/chat'||url.pathname==='/api/voice/tts') {
-        const specific=await checkRateLimit(env.DB,`ai:${getClientKey(request)}`,30,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
+        const specific=await checkRateLimit(env.DB,`ai:${await getClientKey(request)}`,30,60).catch(()=>({allowed:false,retryAfterSeconds:60}));
         if(!specific.allowed)return json({error:'AI rate limit exceeded.',status:'rate_limited',retryAfterSeconds:specific.retryAfterSeconds},429,corsHeaders(origin));
       }
       try {
