@@ -81,5 +81,9 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     }
   }
 
-  return (await fetch(input, {\n    ...init,\n    headers,\n    credentials: init.credentials || 'same-origin',\n  })) as ApiResponse;
+  return (await fetch(input, {
+    ...init,
+    headers,
+    credentials: init.credentials || 'same-origin',
+  })) as ApiResponse;
 }
