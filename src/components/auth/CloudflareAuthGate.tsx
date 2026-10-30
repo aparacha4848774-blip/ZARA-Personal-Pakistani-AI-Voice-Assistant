@@ -13,10 +13,10 @@ export function CloudflareAuthGate({ children }: { children: React.ReactNode }) 
     (async()=>{
       try {
         const health=await fetch('/api/health',{headers:{accept:'application/json'}});
-        const healthData=await health.json().catch(()=>null);
+        const healthData:any=await health.json().catch(()=>null);
         if(healthData?.runtime!=='cloudflare-workers'){if(active)setState('local');return;}
         const response=await fetch('/api/auth/status',{headers:{accept:'application/json'},credentials:'same-origin'});
-        const auth=await response.json();
+        const auth:any=await response.json();
         if(!active)return;
         if(!auth.configured)setState('unconfigured');
         else setState(auth.authenticated?'authenticated':'login');
@@ -33,7 +33,7 @@ export function CloudflareAuthGate({ children }: { children: React.ReactNode }) 
     setBusy(true);
     try{
       const response=await fetch('/api/auth/session',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify({token})});
-      const data=await response.json();
+      const data:any=await response.json();
       if(!response.ok)throw new Error(data.error||'Sign in failed.');
       setToken('');
       setState('authenticated');
