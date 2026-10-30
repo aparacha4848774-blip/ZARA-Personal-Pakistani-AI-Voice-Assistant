@@ -61,16 +61,18 @@ function getClientKey(request: Request): string {
 function authorized(request: Request, env: Env): boolean {
   const expected = env.ZARA_AUTH_TOKEN;
   if (!expected || expected.length < 32) return false;
-  const bearer = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim();
+  const bearer = request.headers.get('Authorization')?.replace(/^Bearer\\s+/i, '').trim();
   const custom = request.headers.get('X-ZARA-AUTH')?.trim();
   const cookie = request.headers.get('Cookie') || '';
   const session = cookie.split(';').map((v) => v.trim()).find((v) => v.startsWith('zara_session='));
   const cookieToken = session ? decodeURIComponent(session.slice('zara_session='.length)) : '';
-  const supplied = bearer || custom || cookieToken || '';
-  if (supplied.length !== expected.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < expected.length; i++) mismatch |= expected.charCodeAt(i) ^ supplied.charCodeAt(i);
-  return mismatch === 0;
+  const candidates = [bearer, custom, cookieToken].filter((value): value is string => Boolean(value));
+  return candidates.some((supplied) => {
+    if (supplied.length !== expected.length) return false;
+    let mismatch = 0;
+    for (let i = 0; i < expected.length; i++) mismatch |= expected.charCodeAt(i) ^ supplied.charCodeAt(i);
+    return mismatch === 0;
+  });
 }
 
 async function readJson(request: Request): Promise<Json> {
