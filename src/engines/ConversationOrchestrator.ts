@@ -613,7 +613,8 @@ class ConversationOrchestrator {
           ttsData?.audioBase64,
           voiceSpeed,
           voiceVolume,
-          targetLang
+          targetLang,
+          ttsData?.mimeType || 'audio/wav'
         );
       })
       .catch((err) => {
