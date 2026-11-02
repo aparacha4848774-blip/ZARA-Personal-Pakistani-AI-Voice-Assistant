@@ -11,8 +11,6 @@ const JSON_HEADERS = {
 const METHODS = 'GET,POST,PUT,PATCH,DELETE,OPTIONS';
 const HEADERS = 'content-type,authorization,x-zara-auth';
 const MAX_BODY_BYTES = 64 * 1024;
-const CHAT_MODEL = 'gemini-3.8-flash';
-const TTS_MODEL = 'gemini-3.8-flash-lite-tts';
 const WORKERS_MODEL = '@cf/google/gemma-4-26b-a4b-it';
 
 type Json = Record<string, any>;
@@ -116,25 +114,6 @@ async function saveUsage(env: Env, model: string, task: string, input: number, o
     .bind(crypto.randomUUID(), model, task, input, output, latency, status, new Date().toISOString()).run();
 }
 
-async function geminiGenerate(env: Env, model: string, contents: Json[], systemInstruction: string, thinking: boolean): Promise<string> {
-  if (!env.GEMINI_API_KEY) throw new Error('Gemini provider is not configured');
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method:'POST',
-    headers:{'content-type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
-    body:JSON.stringify({
-      systemInstruction:{parts:[{text:systemInstruction}]},
-      contents,
-      generationConfig:{temperature:0.8,maxOutputTokens:4096,thinkingConfig:{thinkingLevel:thinking?'high':'low'}},
-    }),
-    signal:AbortSignal.timeout(25000),
-  });
-  const data = await response.json() as Json;
-  if (!response.ok) throw new Error(`Gemini provider returned HTTP ${response.status}`);
-  const text = data.candidates?.[0]?.content?.parts?.filter((p:Json)=>typeof p.text==='string').map((p:Json)=>p.text).join('') || '';
-  if (!text.trim()) throw new Error('Gemini returned an empty response');
-  return text;
-}
-
 async function workersAiGenerate(env: Env, contents: Json[], systemInstruction: string, thinking: boolean): Promise<string> {
   if (!env.AI) throw new Error('Workers AI binding is unavailable');
   const messages = [
@@ -142,11 +121,7 @@ async function workersAiGenerate(env: Env, contents: Json[], systemInstruction: 
     ...contents.map((c:Json)=>({role:c.role==='model'?'assistant':'user',content:c.parts?.map((p:Json)=>p.text||'').join('')||''})),
   ];
   const model = env.WORKERS_AI_MODEL || WORKERS_MODEL;
-  // Kimi K2.6 uses `thinking`; other supported models may use `enable_thinking`.
-  const chatTemplate = model === '@cf/moonshotai/kimi-k2.6'
-    ? { thinking }
-    : { enable_thinking: thinking };
-  const result = await env.AI.run(model,{messages,max_completion_tokens:2048,temperature:0.7,chat_template_kwargs:chatTemplate}) as Json;
+  const result = await env.AI.run(model,{messages,max_completion_tokens:2048,temperature:0.7,chat_template_kwargs:{enable_thinking:thinking}}) as Json;
   const text = result?.response || result?.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || !text.trim()) throw new Error('Workers AI returned an empty response');
   return text;
@@ -179,23 +154,19 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   if (!alreadyIncludesCurrent) contents.push({role:'user',parts:[{text:message.trim()}]});
   const system = persona(language,memories,String(body.currentEmotion||'Confident').slice(0,40));
   const thinking = Boolean(body.highThinking || settings.highThinkingMode);
-  const preferred = env.GEMINI_CHAT_MODEL || CHAT_MODEL;
+  const modelUsed = env.WORKERS_AI_MODEL || WORKERS_MODEL;
   let responseText = '';
-  let modelUsed = '';
-  let providerStatus = 'success';
+  const providerStatus = 'success';
   let failure = '';
-  if (env.GEMINI_API_KEY) {
-    try { responseText = await geminiGenerate(env,preferred,contents,system,thinking); modelUsed=preferred; }
-    catch (error) { failure=error instanceof Error?error.message:'Gemini failed'; }
-  }
-  if (!responseText) {
-    try { responseText=await workersAiGenerate(env,contents,system,thinking); modelUsed=env.WORKERS_AI_MODEL||WORKERS_MODEL; providerStatus='fallback'; }
-    catch (error) { failure=failure || (error instanceof Error?error.message:'AI provider failed'); }
+  try {
+    responseText = await workersAiGenerate(env,contents,system,thinking);
+  } catch (error) {
+    failure = error instanceof Error ? error.message : 'Workers AI failed';
   }
   const latency=Date.now()-started;
   if (!responseText) {
-    await saveUsage(env,preferred,'chat',Math.ceil(message.length/4),0,latency,'failed').catch(()=>{});
-    return json({error:'AI providers are currently unavailable. Check Gemini/Workers AI configuration.',status:'provider_unavailable',details:failure.slice(0,180)},503);
+    await saveUsage(env,modelUsed,'chat',Math.ceil(message.length/4),0,latency,'failed').catch(()=>{});
+    return json({error:'Workers AI is currently unavailable or its free daily quota has been reached. Please try again after the quota resets.',status:'free_quota_or_provider_unavailable',details:failure.slice(0,180)},503);
   }
   const approxInput=Math.ceil((message.length+contents.reduce((n,c)=>n+c.parts[0].text.length,0))/4);
   const approxOutput=Math.ceil(responseText.length/4);
@@ -231,46 +202,24 @@ function pcmToWavBase64(base64: string, sampleRate: number, channels = 1): strin
   return btoa(binary);
 }
 
-async function handleTts(request: Request, env: Env): Promise<Response> {
+async function handleTts(request: Request, _env: Env): Promise<Response> {
   const body=await readJson(request);
   if(typeof body.text!=='string'||!body.text.trim()) return json({error:'Text is required.'},400);
   if(body.text.length>3000) return json({error:'Text exceeds 3000 characters.'},413);
-  const model=env.GEMINI_TTS_MODEL||TTS_MODEL;
-  if(!env.GEMINI_API_KEY) return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'Gemini TTS is not configured; use browser speech synthesis.'});
-  const lang=['urdu','roman_urdu','english'].includes(body.language)?body.language:'roman_urdu';
-  const voice=typeof body.voiceConfig?.voiceName==='string'?body.voiceConfig.voiceName:'Kore';
-  const style=typeof body.speechStyle==='string'?body.speechStyle.slice(0,400):'Warm, natural Pakistani conversational voice.';
-  const regionalStyle=lang==='urdu'
-    ? `Speak in a natural Pakistani Urdu accent. ${style}`
-    : lang==='roman_urdu'
-      ? `This transcript is Roman Urdu. Pronounce it naturally as Pakistani Urdu; do not translate it. ${style}`
-      : `Speak in natural Pakistani English. ${style}`;
-  const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
-    method:'POST',headers:{'content-type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
-    body:JSON.stringify({
-      contents:[{role:'user',parts:[{text:body.text.trim(),speech_metadata:{style:regionalStyle}}]}],
-      generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{voice}}},
-    }),
-    signal:AbortSignal.timeout(25000),
+  return json({
+    audioBase64:null,
+    format:'client-voice',
+    status:'fallback',
+    provider:'browser-speech-synthesis',
+    notice:'Always Free mode uses your device browser voices. No paid cloud TTS provider is called.',
   });
-  const data=await response.json() as Json;
-  const audio=data.candidates?.[0]?.content?.parts?.find((p:Json)=>p.inlineData?.data)?.inlineData;
-  if(!response.ok||!audio?.data) return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'TTS provider unavailable; use browser speech synthesis.'});
-  const audioMime=String(audio.mimeType||'audio/wav').toLowerCase();
-  if(audioMime.includes('wav')) return json({audioBase64:audio.data,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
-  if(audioMime.includes('l16')||audioMime.includes('pcm')) {
-    const sampleRate=Number(audioMime.match(/rate=(\\d+)/i)?.[1]||24000);
-    const wav=pcmToWavBase64(audio.data,Number.isFinite(sampleRate)?sampleRate:24000);
-    return json({audioBase64:wav,mimeType:'audio/wav',format:'gemini-audio',modelUsed:model,voiceName:voice,status:'success'});
-  }
-  return json({audioBase64:null,format:'client-voice',status:'fallback',notice:'Unsupported TTS audio format; use browser speech synthesis.'});
 }
 
 async function handleApi(request: Request, env: Env): Promise<Response> {
   const url=new URL(request.url), path=url.pathname, method=request.method;
   if(method==='GET'&&path==='/api/health') {
     const db=await env.DB.prepare('SELECT 1 AS ok').first<{ok:number}>().then(()=>true).catch(()=>false);
-    return json({status:db?'ok':'degraded',service:'zara-worker',runtime:'cloudflare-workers',timestamp:new Date().toISOString(),dependencies:{d1:db,workersAI:Boolean(env.AI),gemini:Boolean(env.GEMINI_API_KEY),authConfigured:Boolean(env.ZARA_AUTH_TOKEN&&env.ZARA_AUTH_TOKEN.length>=32)},capabilities:{chat:db?'gemini_with_workers_ai_fallback':'unavailable',persistence:'d1',voice:'browser_recognition_and_gemini_tts_optional',desktopControl:'electron_local_runtime',whatsapp:Boolean(env.WHATSAPP_API_TOKEN&&env.WHATSAPP_PHONE_NUMBER_ID)}} ,db?200:503);
+    return json({status:db?'ok':'degraded',service:'zara-worker',runtime:'cloudflare-workers',timestamp:new Date().toISOString(),dependencies:{d1:db,workersAI:Boolean(env.AI),gemini:false,authConfigured:Boolean(env.ZARA_AUTH_TOKEN&&env.ZARA_AUTH_TOKEN.length>=32)},capabilities:{chat:db&&Boolean(env.AI)?'cloudflare_workers_ai_only':'unavailable',persistence:'d1',voice:'browser_speech_synthesis_only',desktopControl:'electron_local_runtime',whatsapp:Boolean(env.WHATSAPP_API_TOKEN&&env.WHATSAPP_PHONE_NUMBER_ID)}} ,db?200:503);
   }
   if(method==='GET'&&path==='/api/auth/status') return json({configured:Boolean(env.ZARA_AUTH_TOKEN&&env.ZARA_AUTH_TOKEN.length>=32),authenticated:authorized(request,env)});
   if(method==='POST'&&path==='/api/auth/session') {
