@@ -82,11 +82,13 @@ Do not delete the Supabase copy until the owner decides it is no longer needed.
 
 ## Status and limitations
 
-The repository has a Workers AI Free model fallback and the D1 database
+The repository is intended to use Workers AI directly with the D1 database
 binding. Supabase schema/data migration is not part of the target runtime.
-The current application code still has a Gemini-first branch when
-`GEMINI_API_KEY` is set; that branch must be removed or hard-disabled before
-claiming full Always Free compliance.
+The Worker chat path has now been changed to call Workers AI only; the Gemini
+chat provider was removed from this runtime path. Cloud TTS is also disabled;
+TTS returns a browser speech-synthesis fallback. Verify the CI run and staging
+behavior before claiming the whole product is production-ready. Voice
+recognition/STT still needs a separate free-quota and live-device verification.
 
 CI success does not prove live AI, voice, TTS, WhatsApp, or staging deployment.
 A free-tier service can still be rate-limited, paused, or unavailable at its
