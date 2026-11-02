@@ -141,7 +141,12 @@ async function workersAiGenerate(env: Env, contents: Json[], systemInstruction: 
     {role:'system',content:systemInstruction},
     ...contents.map((c:Json)=>({role:c.role==='model'?'assistant':'user',content:c.parts?.map((p:Json)=>p.text||'').join('')||''})),
   ];
-  const result = await env.AI.run(env.WORKERS_AI_MODEL || WORKERS_MODEL,{messages,max_completion_tokens:2048,temperature:0.7,chat_template_kwargs:{enable_thinking:thinking}}) as Json;
+  const model = env.WORKERS_AI_MODEL || WORKERS_MODEL;
+  // Kimi K2.6 uses `thinking`; other supported models may use `enable_thinking`.
+  const chatTemplate = model === '@cf/moonshotai/kimi-k2.6'
+    ? { thinking }
+    : { enable_thinking: thinking };
+  const result = await env.AI.run(model,{messages,max_completion_tokens:2048,temperature:0.7,chat_template_kwargs:chatTemplate}) as Json;
   const text = result?.response || result?.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || !text.trim()) throw new Error('Workers AI returned an empty response');
   return text;
