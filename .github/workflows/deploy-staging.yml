@@ -16,7 +16,7 @@ jobs:
       ZARA_AUTH_TOKEN: ${{ secrets.ZARA_AUTH_TOKEN }}
       WHATSAPP_API_TOKEN: ${{ secrets.WHATSAPP_API_TOKEN }}
       WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
-      ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
+      ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN || 'https://zara-personal-pakistani-ai-voice-assistant-staging.aparacha4848774.workers.dev' }}
     steps:
       - name: Checkout migration branch
         uses: actions/checkout@v4
