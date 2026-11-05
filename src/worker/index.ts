@@ -339,6 +339,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if(path==='/api/whatsapp/send'&&method==='POST') {
     const b=await readJson(request);
     if(typeof b.id!=='string'||!b.id.trim())return json({error:'A valid message draft ID is required.'},400);
+    if(b.confirmed!==true&&b.confirmed!==false)return json({error:'Explicit confirmation or cancellation is required.'},400);
     const msg=await env.DB.prepare('SELECT * FROM whatsapp_messages WHERE id=?').bind(b.id).first<Json>();
     if(!msg)return json({success:false,messageId:b.id,deliveryStatus:'failed',notice:'Message draft not found.'},404);
     if(b.confirmed===false) {
