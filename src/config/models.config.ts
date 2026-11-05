@@ -1,48 +1,14 @@
 import { GeminiModelConfig } from '../types/zara.types.ts';
 
+// This registry reflects the model actually invoked by the Cloudflare Worker.
+// Voice input/output currently use browser speech APIs, not a cloud Gemini TTS model.
 export const DEFAULT_GEMINI_MODELS: GeminiModelConfig[] = [
   {
-    modelId: 'gemini-3.8-flash',
-    displayName: 'Gemini 3.8 Flash (Primary Chat)',
-    capabilities: ['text', 'fast-turn', 'reasoning', 'low-latency'],
+    modelId: '@cf/google/gemma-4-26b-a4b-it',
+    displayName: 'Cloudflare Workers AI — Gemma 4 26B A4B',
+    capabilities: ['chat', 'multilingual', 'reasoning', 'vision', 'high-thinking'],
     isPrimary: true,
     isFallback: false,
-    taskType: 'chat',
-    isEnabled: true,
-  },
-  {
-    modelId: 'gemini-4-argon',
-    displayName: 'Gemini 4 Argon (High Thinking & Reasoning)',
-    capabilities: ['text', 'deep-reasoning', 'high-thinking', 'stem'],
-    isPrimary: false,
-    isFallback: false,
-    taskType: 'thinking',
-    isEnabled: true,
-  },
-  {
-    modelId: 'gemini-3.1-flash-lite',
-    displayName: 'Gemini 3.1 Flash Lite (Ultra-Fast Live)',
-    capabilities: ['text', 'ultra-fast', 'low-latency', 'reasoning'],
-    isPrimary: false,
-    isFallback: true,
-    taskType: 'chat',
-    isEnabled: true,
-  },
-  {
-    modelId: 'gemini-3.8-flash-lite-tts',
-    displayName: 'Gemini 3.8 Flash Lite TTS',
-    capabilities: ['audio-speech', 'natural-tts', 'low-latency'],
-    isPrimary: true,
-    isFallback: false,
-    taskType: 'voice',
-    isEnabled: true,
-  },
-  {
-    modelId: 'gemini-flash-latest',
-    displayName: 'Gemini Flash Latest (Adaptive Fallback)',
-    capabilities: ['text', 'ultra-fast', 'fallback'],
-    isPrimary: false,
-    isFallback: true,
     taskType: 'chat',
     isEnabled: true,
   },
