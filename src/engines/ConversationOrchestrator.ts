@@ -30,6 +30,7 @@ interface PendingClarification {
     | 'research_topic'
     | 'whatsapp_message'
     | 'whatsapp_contact'
+    | 'whatsapp_phone'
     | 'app_name';
   contextData?: any;
 }
@@ -210,6 +211,40 @@ class ConversationOrchestrator {
         return;
       }
 
+      if (clar.type === 'whatsapp_phone') {
+        const contactName = String(clar.contextData?.contactName || 'Contact');
+        const messageText = String(clar.contextData?.messageText || '');
+        try {
+          const response = await apiFetch('/api/whatsapp/draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contactName, contactIdentifier: trimmedAns, messageText }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'WhatsApp draft could not be saved.');
+          const reply = `Boss, ${contactName} ke liye draft save ho gaya hai. WhatsApp Center mein recipient aur message review karke confirm karein. Abhi koi message send nahi hua.`;
+          useConversationStore.getState().addMessage({
+            conversationId: useConversationStore.getState().activeConversationId,
+            role: 'zara',
+            content: reply,
+            language: detectedLang,
+            emotion: 'Focused',
+          });
+          this.speakReply(reply, 'Focused', 85, 'high', 'cloudflare-workers-ai', detectedLang);
+        } catch (error) {
+          const reply = error instanceof Error ? error.message : 'WhatsApp draft save nahi ho saka.';
+          useConversationStore.getState().addMessage({
+            conversationId: useConversationStore.getState().activeConversationId,
+            role: 'zara',
+            content: `Boss, ${reply}`,
+            language: detectedLang,
+            emotion: 'Caring',
+          });
+          this.speakReply(`Boss, ${reply}`, 'Caring', 70, 'low', 'browser-speech-synthesis', detectedLang);
+        }
+        return;
+      }
+
       if (clar.type === 'whatsapp_contact') {
         const contact = trimmedAns.replace(/\s*(?:ko|ko\s+message)\s*$/i, '').trim();
         this.pendingClarification = {
@@ -341,33 +376,27 @@ class ConversationOrchestrator {
       return;
     }
 
-    // Direct WhatsApp Draft ("[name] ko message [text]")
+    // Direct WhatsApp draft: obtain a real recipient number before creating a draft.
     if (advanced.intent === 'whatsapp_draft' && advanced.whatsappDraft) {
       const { contactName, messageText } = advanced.whatsappDraft;
-      try {
-        await apiFetch('/api/whatsapp/draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contactName,
-            messageText,
-          }),
-        });
-      } catch (e) {
-        console.warn('WhatsApp draft error:', e);
-      }
-
+      this.pendingClarification = {
+        type: 'whatsapp_phone',
+        contextData: { contactName, messageText },
+      };
+      const language = detectLanguage(query);
+      const prompt = language === 'urdu'
+        ? `باس، ${contactName} کا مکمل واٹس ایپ نمبر کنٹری کوڈ کے ساتھ بتا دیں۔ ابھی کوئی پیغام نہیں بھیجا جائے گا۔`
+        : language === 'english'
+        ? `Boss, what is ${contactName}'s full WhatsApp number, including the country code? I will only save a draft; nothing will be sent.`
+        : `Boss, ${contactName} ka WhatsApp number country code ke saath bata dein. Main sirf draft save karungi; abhi koi message send nahi hoga.`;
       useConversationStore.getState().addMessage({
         conversationId: useConversationStore.getState().activeConversationId,
         role: 'zara',
-        content: advanced.speechResponseRomanUrdu,
-        language: 'roman_urdu',
-        emotion: 'Focused',
-        emotionIntensity: 88,
-        confidenceLevel: 'high',
+        content: prompt,
+        language,
+        emotion: 'Curious',
       });
-
-      this.speakReply(advanced.speechResponseRomanUrdu, 'Focused', 88, 'high');
+      this.speakReply(prompt, 'Curious', 85, 'high', 'browser-speech-synthesis', language);
       return;
     }
 
@@ -469,21 +498,24 @@ class ConversationOrchestrator {
     // -------------------------------------------------------------
     const waCheck = parseWhatsAppCommand(query);
     if (waCheck.isWhatsAppIntent && waCheck.contactName && waCheck.messageText) {
-      try {
-        await apiFetch('/api/whatsapp/draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contactName: waCheck.contactName,
-            messageText: waCheck.messageText,
-          }),
-        });
-      } catch (e) {
-        console.warn('WhatsApp draft error:', e);
-      }
-
-      const responseText = `Theek hai Boss, ${waCheck.contactName} ko yeh message draft kar diya hai: "${waCheck.messageText}". WhatsApp dispatch ready hai!`;
-      this.speakReply(responseText, 'Focused', 85, 'high', 'gemini-3.8-flash');
+      this.pendingClarification = {
+        type: 'whatsapp_phone',
+        contextData: { contactName: waCheck.contactName, messageText: waCheck.messageText },
+      };
+      const language = detectLanguage(query);
+      const responseText = language === 'urdu'
+        ? `باس، ${waCheck.contactName} کا مکمل واٹس ایپ نمبر کنٹری کوڈ کے ساتھ بتا دیں۔ ابھی کوئی پیغام نہیں بھیجا جائے گا۔`
+        : language === 'english'
+        ? `Boss, what is ${waCheck.contactName}'s full WhatsApp number, including the country code? I will only save a draft; nothing will be sent.`
+        : `Boss, ${waCheck.contactName} ka WhatsApp number country code ke saath bata dein. Main sirf draft save karungi; abhi koi message send nahi hoga.`;
+      useConversationStore.getState().addMessage({
+        conversationId: useConversationStore.getState().activeConversationId,
+        role: 'zara',
+        content: responseText,
+        language,
+        emotion: 'Curious',
+      });
+      this.speakReply(responseText, 'Curious', 85, 'high', 'browser-speech-synthesis', language);
       return;
     }
 
@@ -522,9 +554,13 @@ class ConversationOrchestrator {
       }
 
       // Replaces old generic canned line with helpful, polite, language-matched clarification
-      const replyText =
-        data?.response ||
-        getClarificationResponse(detectedLang, 'unclear');
+      if (!res.ok) {
+        throw new Error(data?.error || `AI request failed with status ${res.status}.`);
+      }
+      if (typeof data?.response !== 'string' || !data.response.trim()) {
+        throw new Error('AI provider returned an empty response.');
+      }
+      const replyText = data.response;
 
       const assignedEmotion = data?.emotion || 'Confident';
       const assignedIntensity = typeof data?.intensity === 'number' ? data.intensity : 80;
