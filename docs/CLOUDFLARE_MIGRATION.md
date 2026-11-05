@@ -280,7 +280,7 @@ Do not create duplicate route implementations without a clear ownership boundary
 
 ## 11. Current status (verified 2026-11-05)
 
-- Migration branch: `cloudflare-workers-migration`; latest audited code commit: `e5c5e686ddd1597cacc9f8cd799615f677aefc49`.
+- Migration branch: `cloudflare-workers-migration`; latest audited code commit: `a7aedb5754f23535196207b0c6c1fc36f334acf0`.
 - Original `main` branch: **unchanged** at `ef21d858038fe03a433a83fe08652eb11b224061`.
 - GitHub CI on the latest audited code commit: **green**. Run `42035554870` passed Worker/application tests, Wrangler type generation, TypeScript, Vite production build and Wrangler dry-run.
 - Workers AI model: `@cf/google/gemma-4-26b-a4b-it`; the model ID is listed in current Cloudflare documentation. Worker code invokes it through `env.AI.run()`. A model registry and authenticated live inference test route are now implemented.
@@ -373,10 +373,10 @@ Only the settings record and three active, user-approved owner memories were imp
 
 ## 16. CI verification checkpoint (2026-11-05)
 
-The latest migration-branch CI run for commit `e5c5e686ddd1597cacc9f8cd799615f677aefc49` is **completed successfully**:
+The latest migration-branch CI run for commit `a7aedb5754f23535196207b0c6c1fc36f334acf0` is **completed successfully**:
 
-- Run: https://github.com/aparacha4848774-blip/ZARA-Personal-Pakistani-AI-Voice-Assistant/actions/runs/42035554870
-- Worker and application tests passed, including WhatsApp cancellation, authenticated model registry and live-inference route behavior with a mocked AI binding.
+- Run: https://github.com/aparacha4848774-blip/ZARA-Personal-Pakistani-AI-Voice-Assistant/actions/runs/42036330797
+- **113 tests passed, 0 failed**, including WhatsApp cancellation, authenticated model registry and inference-route behavior with a mocked AI binding.
 - Wrangler binding type generation passed.
 - TypeScript check passed.
 - Vite production build passed.
