@@ -13,17 +13,11 @@ import { WhatsAppMessage } from '../../types/zara.types.ts';
 import { orchestrator } from '../../engines/ConversationOrchestrator.ts';
 import { apiFetch } from '../../utils/apiClient.ts';
 
-const SAMPLE_CONTACTS = [
-  { name: 'Hamza', phone: '+92 300 1234567', relation: 'Best Friend' },
-  { name: 'Ali Dev', phone: '+92 321 9876543', relation: 'Colleague' },
-  { name: 'Bilal', phone: '+92 333 4567890', relation: 'Project Lead' },
-  { name: 'Ammi', phone: '+92 301 7654321', relation: 'Family' },
-];
-
 export const WhatsAppCenter: React.FC = () => {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
-  const [selectedContact, setSelectedContact] = useState('Hamza');
-  const [messageBody, setMessageBody] = useState('Main 5 minute mein aa raha hoon');
+  const [contactName, setContactName] = useState('');
+  const [contactIdentifier, setContactIdentifier] = useState('');
+  const [messageBody, setMessageBody] = useState('');
   const [activeModalMessage, setActiveModalMessage] = useState<WhatsAppMessage | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
@@ -49,61 +43,59 @@ export const WhatsAppCenter: React.FC = () => {
     if (!messageBody.trim()) return;
 
     try {
-      const contactObj = SAMPLE_CONTACTS.find((c) => c.name === selectedContact);
+      if (!contactName.trim() || !contactIdentifier.trim()) {
+        setStatusNotice('Boss, contact name aur real WhatsApp number (country code ke saath) enter karein.');
+        return;
+      }
       const res = await apiFetch('/api/whatsapp/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contactName: selectedContact,
-          contactIdentifier: contactObj?.phone || '+92 300 0000000',
+          contactName: contactName.trim(),
+          contactIdentifier: contactIdentifier.trim(),
           messageText: messageBody.trim(),
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setActiveModalMessage(data.draft);
-        fetchMessages();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Draft could not be saved.');
+      setActiveModalMessage(data.draft);
+      setStatusNotice('Draft saved. Review the recipient and message before confirming.');
+      fetchMessages();
     } catch (err) {
-      console.error('Draft creation error:', err);
+      const message = err instanceof Error ? err.message : 'Draft creation failed.';
+      setStatusNotice(message);
     }
   };
 
   const handleConfirmSend = async (id: string, confirmed: boolean) => {
     setIsSending(true);
-    setStatusNotice('Bhejne ki koshish kar rahi hoon...');
-
-    setTimeout(async () => {
-      try {
+    setStatusNotice(confirmed ? 'WhatsApp provider se dispatch status check ho raha hai...' : 'Draft cancel ho raha hai...');
+    try {
         const res = await apiFetch('/api/whatsapp/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, confirmed }),
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          setStatusNotice(data.notice);
-          setActiveModalMessage(null);
-          fetchMessages();
-
-          if (confirmed) {
-            orchestrator.speakReply(
-              `Theek hai Boss, message simulated bhej diya gaya hai!`,
-              'Happy',
-              85
-            );
-          } else {
-            orchestrator.speakReply(`Theek hai Boss, message cancel kar diya.`, 'Calm', 70);
-          }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.notice || data.error || 'WhatsApp action failed.');
+        setStatusNotice(data.notice || 'WhatsApp action completed.');
+        setActiveModalMessage(null);
+        fetchMessages();
+        if (data.deliveryStatus === 'sent') {
+          orchestrator.speakReply('Boss, WhatsApp provider ne message accept kar liya hai.', 'Happy', 85);
+        } else if (data.deliveryStatus === 'cancelled') {
+          orchestrator.speakReply('Theek hai Boss, draft cancel kar diya. Koi message send nahi hua.', 'Calm', 70);
+        } else {
+          orchestrator.speakReply(data.notice || 'Boss, message send nahi hua.', 'Calm', 70);
         }
-      } catch (e) {
-        console.warn('Dispatch failed:', e);
-      } finally {
-        setIsSending(false);
-      }
-    }, 1800);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'WhatsApp action failed.';
+      setStatusNotice(message);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -113,18 +105,18 @@ export const WhatsAppCenter: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-brand font-bold text-white tracking-wide">
-              WhatsApp Center (Phase 1 Simulated)
+              WhatsApp Business Dispatch
             </h2>
             <span className="text-sm font-urdu text-emerald-400">(واٹس ایپ مرسل)</span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Voice-command messaging flow with double confirmation and dispatch logging.
+            Create a draft, verify the real recipient number, then explicitly confirm dispatch.
           </p>
         </div>
 
         <div className="px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono flex items-center gap-2 w-fit">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>UI Flow Ready &bull; Simulated Delivery</span>
+          <span>Live API when Meta credentials are configured</span>
         </div>
       </div>
 
@@ -132,9 +124,10 @@ export const WhatsAppCenter: React.FC = () => {
       <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs text-amber-200">
         <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
         <div>
-          <strong className="font-semibold text-amber-300">Phase 1 Rule: </strong>
-          Real WhatsApp Business API connects in Phase 2. Currently, voice intents trigger a
-          realistic read-back, confirmation modal, and simulated message dispatch audit.
+          <strong className="font-semibold text-amber-300">Delivery rule: </strong>
+          No sample contacts or fake phone numbers are used. A message is sent only after your
+          explicit confirmation and only when valid Meta WhatsApp Cloud API credentials are configured.
+          Otherwise the API reports that delivery is not configured and the draft remains saved.
         </div>
       </div>
 
@@ -148,20 +141,35 @@ export const WhatsAppCenter: React.FC = () => {
 
           <form onSubmit={handleCreateDraft} className="space-y-4">
             <div>
-              <label className="block text-xs font-mono text-zinc-400 mb-1.5">
-                SELECT CONTACT
+              <label className="block text-xs font-mono text-zinc-400 mb-1.5" htmlFor="wa-contact-name">
+                CONTACT NAME
               </label>
-              <select
-                value={selectedContact}
-                onChange={(e) => setSelectedContact(e.target.value)}
+              <input
+                id="wa-contact-name"
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+                maxLength={120}
+                required
+                placeholder="e.g. Hamza"
                 className="w-full bg-[#0A0A0F] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500"
-              >
-                {SAMPLE_CONTACTS.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name} ({c.relation} - {c.phone})
-                  </option>
-                ))}
-              </select>
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-zinc-400 mb-1.5" htmlFor="wa-contact-phone">
+                REAL WHATSAPP NUMBER (E.164)
+              </label>
+              <input
+                id="wa-contact-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={contactIdentifier}
+                onChange={(e) => setContactIdentifier(e.target.value)}
+                maxLength={20}
+                required
+                placeholder="+923001234567"
+                className="w-full bg-[#0A0A0F] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500"
+              />
             </div>
 
             <div>
@@ -276,8 +284,9 @@ export const WhatsAppCenter: React.FC = () => {
 
             <div className="space-y-2 text-xs text-zinc-300">
               <p>
-                ZARA will dispatch this message to{' '}
-                <strong className="text-amber-400">{activeModalMessage.contactName}</strong>:
+                Review the recipient before dispatch:
+                <strong className="text-amber-400"> {activeModalMessage.contactName}</strong>
+                {activeModalMessage.contactIdentifier ? ` (${activeModalMessage.contactIdentifier})` : ''}:
               </p>
               <div className="p-3 rounded-xl bg-[#0A0A0F] border border-white/10 font-mono text-sm text-white">
                 "{activeModalMessage.messageText}"
@@ -286,7 +295,7 @@ export const WhatsAppCenter: React.FC = () => {
 
             {isSending ? (
               <div className="p-3 text-center text-xs text-amber-300 font-mono animate-pulse">
-                Bhejne ki koshish kar rahi hoon... (Simulating Dispatch)
+                Processing the confirmed WhatsApp action...
               </div>
             ) : (
               <div className="flex justify-end gap-3 pt-2">
