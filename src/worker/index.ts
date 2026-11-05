@@ -398,8 +398,20 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
   if(path==='/api/usage'&&method==='GET') {
     const rows=await env.DB.prepare('SELECT * FROM usage_logs ORDER BY created_at DESC LIMIT 100').all<Json>();
-    const totals=await env.DB.prepare('SELECT COUNT(*) AS totalRequests, SUM(input_tokens) AS inputTokens, SUM(output_tokens) AS outputTokens FROM usage_logs').first<Json>();
-    return json({usage:{totalRequests:totals?.totalRequests||0,totalInputTokens:totals?.inputTokens||0,totalOutputTokens:totals?.outputTokens||0,estimatedCostUsd:0,recentLogs:rows.results||[]}});
+    const totals=await env.DB.prepare("SELECT COUNT(*) AS totalRequests, COALESCE(SUM(input_tokens),0) AS inputTokens, COALESCE(SUM(output_tokens),0) AS outputTokens, COALESCE(SUM(CASE WHEN status='success' THEN 1 ELSE 0 END),0) AS successfulRequests, COALESCE(SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END),0) AS failedRequests FROM usage_logs").first<Json>();
+    return json({usage:{
+      totalRequests:totals?.totalRequests||0,
+      totalInputTokens:totals?.inputTokens||0,
+      totalOutputTokens:totals?.outputTokens||0,
+      successfulRequests:totals?.successfulRequests||0,
+      failedRequests:totals?.failedRequests||0,
+      estimatedCostUsd:null,
+      recentLogs:(rows.results||[]).map((row:Json)=>({
+        id:row.id,modelId:row.model_id,taskType:row.task_type,
+        inputTokens:row.input_tokens,outputTokens:row.output_tokens,
+        latencyMs:row.latency_ms,status:row.status,createdAt:row.created_at,
+      })),
+    }});
   }
   if(path==='/api/automation/history'&&method==='GET') {
     const rows=await env.DB.prepare('SELECT * FROM automation_history ORDER BY started_at DESC LIMIT 100').all<Json>();
