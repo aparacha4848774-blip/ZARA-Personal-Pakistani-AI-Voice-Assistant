@@ -278,24 +278,22 @@ Do not create duplicate route implementations without a clear ownership boundary
 11. Keep a migration log with changed files, test results, known limitations and rollback instructions.
 12. Do not deploy production or change DNS/custom domains without explicit user authorization.
 
-## 11. Current status (verified 2026-11-04)
+## 11. Current status (verified 2026-11-05)
 
-- Repository-specific migration audit: **reviewed against the current migration branch**.
-- Migration branch: `cloudflare-workers-migration`; latest commit after the CI test correction: `5cdebe683ab8b1bbcade8192811e1366ad56b26c`.
+- Migration branch: `cloudflare-workers-migration`; latest audited code commit: `e5c5e686ddd1597cacc9f8cd799615f677aefc49`.
 - Original `main` branch: **unchanged** at `ef21d858038fe03a433a83fe08652eb11b224061`.
-- Wrangler config: **contains Workers Static Assets, the `AI` binding, APAC D1 binding and daily Cron Trigger**. The configured Gemma 4 model ID is present in current Cloudflare documentation; a real inference request has not been performed.
-- D1 staging database: **schema verified directly**; settings = 1 row and approved memories = 3 rows. Conversations, WhatsApp, usage, automation, rate-limit and backup tables currently have 0 rows.
-- Cloudflare deployment: the existing Pages project has an `AI` binding configured for **production**, but its preview environment has no `AI` binding and `uses_functions` is `false`. Therefore the static Pages deployment has no Pages Function route consuming that binding. The separate Wrangler Worker defined in this repository is **not deployed** (no standalone Worker script is present). A Pages preview success is not proof that the Wrangler Worker API is live.
-- Workers AI: **code is wired to `env.AI.run()`**, but live inference, quota/plan eligibility, response quality and latency are not verified.
-- Chat: **Workers AI only in the current Worker route**. The `GEMINI_API_KEY`, `GEMINI_CHAT_MODEL` and `GEMINI_TTS_MODEL` fields are not used by that route; do not describe Gemini as an active fallback.
-- Voice: **browser SpeechRecognition and browser speechSynthesis fallback**. No cloud TTS audio generation or server-side transcription endpoint is currently implemented in the Worker.
-- WhatsApp: **draft/send route code exists**, but live provider credentials and real delivery are not verified.
-- Authentication and D1-backed rate limiting: **implemented in code**, but staging runtime/security testing remains pending.
-- GitHub CI: previous migration-branch runs include both green and failed runs. The latest failed run stopped at the Worker test step. A stale test expected `providerStatus: fallback` although the current Workers AI-only route returns `success`; that assertion was corrected in commit `5cdebe6`. The follow-up Actions run is currently queued, so CI is **not yet verified green**.
-- Production deployment, DNS changes and changes to `main`: **not performed**.
+- GitHub CI on the latest audited code commit: **green**. Run `42035554870` passed Worker/application tests, Wrangler type generation, TypeScript, Vite production build and Wrangler dry-run.
+- Workers AI model: `@cf/google/gemma-4-26b-a4b-it`; the model ID is listed in current Cloudflare documentation. Worker code invokes it through `env.AI.run()`. A model registry and authenticated live inference test route are now implemented.
+- D1 staging database: schema verified directly; settings = 1 row and approved memories = 3 rows. Conversation, WhatsApp, usage, automation, rate-limit and backup tables currently have 0 rows.
+- Existing Cloudflare Pages production deployment has an `AI` binding, but the preview environment has no AI binding and the Pages project has `uses_functions: false`. The Pages preview is static UI and does not execute this Worker API.
+- Separate Wrangler Worker deployment: **not deployed**; Cloudflare currently has no standalone Worker script for this project.
+- Chat: Workers AI only. Gemini environment fields are not used by this Worker.
+- Voice: browser Web Speech recognition and browser speech synthesis. Urdu voice availability and pronunciation depend on the browser/device; there is no cloud TTS or Worker transcription endpoint.
+- WhatsApp: real-number draft validation, explicit confirmation, cancellation and idempotent Meta dispatch are implemented. Real delivery still requires valid Meta Cloud API credentials.
+- Authentication and D1-backed rate limiting: implemented and covered by tests; production staging runtime verification is pending.
+- Production DNS, production Worker deployment and changes to `main`: **not performed**.
 
-The next safe action is to wait for the queued CI run to finish, fix any further failures it reports, then configure the required GitHub Actions secrets and manually deploy only the staging Worker. Do not claim production readiness before live staging tests pass.
-
+**Remaining external deployment gate:** configure the GitHub Actions secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `ZARA_AUTH_TOKEN`, plus the Actions variable `ALLOWED_ORIGIN`. Then manually run the staging workflow. Do not claim production readiness before live staging acceptance tests pass.
 
 ## 12. Staging resource and secret setup
 
@@ -304,11 +302,11 @@ A Cloudflare D1 database named `zara-assistant-staging` was created in APAC (dat
 Before staging Worker deployment, configure these secrets/variables in the Cloudflare Worker settings:
 
 - Secret `ZARA_AUTH_TOKEN`: unique random owner key, minimum 32 characters. The sign-in screen uses this to issue an HttpOnly session cookie.
-- Secret `GEMINI_API_KEY`: existing Gemini API key (optional if Workers AI is enabled; recommended as primary).
+- No Gemini API key is required by the current Worker chat route; it uses the Workers AI binding directly.
 - Secret `WHATSAPP_API_TOKEN`: only if WhatsApp Cloud API dispatch is enabled.
 - Variable `WHATSAPP_PHONE_NUMBER_ID`: official Meta phone-number ID; not a secret.
 - Variable `ALLOWED_ORIGIN`: exact staging origin(s), comma-separated. Never use wildcard origins with owner credentials.
-- Optional variables `GEMINI_CHAT_MODEL=gemini-3.8-flash`, `GEMINI_TTS_MODEL=gemini-3.8-flash-lite-tts`, and `WORKERS_AI_MODEL=@cf/google/gemma-4-26b-a4b-it`.
+- Optional variable `WORKERS_AI_MODEL=@cf/google/gemma-4-26b-a4b-it` to override the default model. Do not configure unused Gemini model IDs.
 
 The Gemini model IDs above are listed as current stable model endpoints in the official Gemini API model catalogue. Urdu/Roman Urdu output and TTS must still pass listening/quality tests before production. Workers AI invocation may incur usage charges, including during local development.
 
@@ -352,26 +350,33 @@ Only the settings record and three active, user-approved owner memories were imp
 
 
 
-## 15. Latest implementation details (re-audited 2026-11-04)
+## 15. Latest implementation details (re-audited 2026-11-05)
 
-- The Worker protects chat, TTS, memories, settings, WhatsApp, usage, automation and conversation-history routes behind the owner session. Public health and auth-status endpoints do not return personal records.
-- The sign-in route issues a Secure, HttpOnly, SameSite=Strict cookie. The API client still supports a legacy localStorage bearer token for compatibility; this is not equivalent to an HttpOnly session and should be phased out after the browser sign-in flow is verified.
-- Login attempts are limited to five per five minutes per client IP. General API and AI requests also use D1-backed rate windows.
-- The current Worker chat handler invokes the configured Workers AI model through `env.AI.run()`. It does not call Gemini despite the unused Gemini environment fields and older planning text.
-- The Worker TTS route currently returns `audioBase64: null` and instructs the client to use browser speech synthesis. No Gemini TTS or Cloudflare TTS generation is implemented in this Worker route.
-- Browser SpeechRecognition / webkitSpeechRecognition remains the speech-input implementation. There is no Worker audio-transcription endpoint in the current route table.
-- Settings, user-approved memories, conversation history, WhatsApp drafts, usage and automation history are stored in D1 by the Worker route. Staging D1 schema and initial import counts were checked directly.
-- The only Worker automation job is the D1 memory backup. Local filesystem cleanup, host diagnostics, Electron, clipboard, process control and desktop actions remain local-only.
-- The daily Cron Trigger is configured in `wrangler.jsonc`, but it cannot run until the Worker is deployed.
+- The Worker protects chat, model registry/tests, TTS, memories, settings, WhatsApp, usage, automation and conversation-history routes behind owner authentication.
+- The sign-in route issues a Secure, HttpOnly, SameSite=Strict cookie. The browser auth gate clears the legacy localStorage bearer token after detecting the Cloudflare Worker runtime.
+- Login attempts are limited to five per five minutes per client IP. General API and AI requests use D1-backed rate windows.
+- The chat handler invokes the configured Workers AI model through `env.AI.run()`; it does not call Gemini.
+- `GET /api/models` returns the active Workers AI model and explicitly reports browser-based voice providers. `POST /api/models/test` performs a real provider inference and records the result in D1.
+- The TTS route currently returns `audioBase64: null`; the client uses browser speech synthesis. There is no cloud TTS or server-side transcription endpoint in this Worker.
+- Browser SpeechRecognition / webkitSpeechRecognition remains the speech-input implementation. Recognition requires a supported browser, HTTPS and microphone permission; Urdu/Roman Urdu accuracy must be tested on the target device.
+- WhatsApp Center no longer uses hard-coded sample phone numbers. Voice-command drafts ask for a real E.164 number; the UI requires explicit confirmation, reports provider errors honestly, and supports cancellation without dispatch. Real sending requires Meta credentials.
+- D1 stores settings, approved memories, conversation history, WhatsApp drafts, usage logs and automation history. Initial D1 import counts were checked directly.
+- Usage Monitor now displays real D1 request records and approximate text token counts; it does not invent a dollar cost estimate. Check Cloudflare billing for actual Workers AI charges.
+- The only Worker automation job is D1 memory backup. Local filesystem cleanup, host diagnostics, Electron, clipboard, process control and desktop actions remain local-only.
+- The daily Cron Trigger is configured but cannot run until the Worker is deployed.
 
-**Still not verified live:** Worker deployment, Workers AI inference, model quota/plan behavior, Urdu/Roman Urdu output quality, TTS pronunciation on target browsers, microphone behavior on the staging hostname, WhatsApp delivery, D1 backup restore, and the complete staging acceptance suite.
+**Still not verified live:** standalone Worker deployment, live Workers AI inference from the deployed Worker, quota/plan behavior, Pakistani Urdu/Roman Urdu voice quality, microphone behavior on the staging hostname, real WhatsApp delivery, D1 backup restore and the complete staging acceptance suite.
 
 
-## 16. CI verification checkpoint (2026-11-04)
+## 16. CI verification checkpoint (2026-11-05)
 
-- The latest previously completed green migration-branch CI run was run `41488786451` on commit `e6e0b6f`; it completed successfully.
-- Two subsequent runs on commits `8b4b41e` and `7ee4343` failed during the Worker test step. The TypeScript, frontend build and Wrangler dry-run steps were skipped after the test failure.
-- The test mismatch found in `src/worker/index.test.ts` was corrected in commit `5cdebe6`: the Workers AI-only route returns `providerStatus: success`, not `fallback`.
-- Follow-up Actions run `41867233865` for commit `5cdebe6` was **queued** at the time of this report. Do not mark CI verified until GitHub reports the run as completed with conclusion `success`.
+The latest migration-branch CI run for commit `e5c5e686ddd1597cacc9f8cd799615f677aefc49` is **completed successfully**:
 
-[Open the follow-up GitHub Actions run](https://github.com/aparacha4848774-blip/ZARA-Personal-Pakistani-AI-Voice-Assistant/actions/runs/41867233865)
+- Run: https://github.com/aparacha4848774-blip/ZARA-Personal-Pakistani-AI-Voice-Assistant/actions/runs/42035554870
+- Worker and application tests passed, including WhatsApp cancellation, authenticated model registry and live-inference route behavior with a mocked AI binding.
+- Wrangler binding type generation passed.
+- TypeScript check passed.
+- Vite production build passed.
+- Wrangler Worker dry-run passed.
+
+This CI success verifies source/build/test behavior. It does **not** prove the production AI provider, browser microphone, voice pronunciation, WhatsApp delivery or deployed staging Worker works live.
