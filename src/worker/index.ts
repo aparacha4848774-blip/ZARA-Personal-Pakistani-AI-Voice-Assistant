@@ -168,7 +168,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     await saveUsage(env,modelUsed,'chat',Math.ceil(message.length/4),0,latency,'failed').catch(()=>{});
     return json({error:'Workers AI is currently unavailable or its free daily quota has been reached. Please try again after the quota resets.',status:'free_quota_or_provider_unavailable',details:failure.slice(0,180)},503);
   }
-  const approxInput=Math.ceil((message.length+contents.reduce((n,c)=>n+c.parts[0].text.length,0))/4);
+  const approxInput=Math.ceil(contents.reduce((n,c)=>n+c.parts[0].text.length,0)/4);
   const approxOutput=Math.ceil(responseText.length/4);
   await saveUsage(env,modelUsed,'chat',approxInput,approxOutput,latency,providerStatus);
   return json({response:responseText,emotion:'Confident',intensity:80,confidence:'medium',style:language==='urdu'?'Pakistani Urdu Script':language==='english'?'Pakistani English':'Dostana Pakistani Roman Urdu',tokensUsed:approxInput+approxOutput,modelUsed,isThinking:thinking,providerStatus,latencyMs:latency});
