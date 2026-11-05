@@ -264,7 +264,7 @@ class ConversationOrchestrator {
           language: detectedLang,
           emotion: 'Curious',
         });
-        this.speakReply(askMsg, 'Curious', 85, 'high', 'gemini-3.8-flash', detectedLang);
+        this.speakReply(askMsg, 'Curious', 85, 'high', '@cf/google/gemma-4-26b-a4b-it', detectedLang);
         return;
       }
 
@@ -537,7 +537,7 @@ class ConversationOrchestrator {
           highThinking,
           currentEmotion,
           language: detectedLang,
-          modelId: highThinking ? 'gemini-4-argon' : 'gemini-3.8-flash',
+          modelId: highThinking ? '@cf/google/gemma-4-26b-a4b-it' : '@cf/google/gemma-4-26b-a4b-it',
         }),
       });
 
@@ -565,7 +565,7 @@ class ConversationOrchestrator {
       const assignedEmotion = data?.emotion || 'Confident';
       const assignedIntensity = typeof data?.intensity === 'number' ? data.intensity : 80;
       const assignedConfidence = data?.confidence || 'high';
-      const assignedModel = data?.modelUsed || 'gemini-3.8-flash';
+      const assignedModel = data?.modelUsed || '@cf/google/gemma-4-26b-a4b-it';
 
       // Update emotion safely
       if (data?.emotion) {
@@ -591,7 +591,7 @@ class ConversationOrchestrator {
     } catch (err: any) {
       console.error('Chat processing error:', err);
       const fallbackReply = getClarificationResponse(detectedLang, 'network');
-      this.speakReply(fallbackReply, 'Caring', 75, 'low', 'gemini-3.8-flash', detectedLang);
+      this.speakReply(fallbackReply, 'Caring', 75, 'low', '@cf/google/gemma-4-26b-a4b-it', detectedLang);
     }
   }
 
@@ -600,7 +600,7 @@ class ConversationOrchestrator {
     emotion = 'Confident',
     intensity = 80,
     confidence = 'high',
-    modelUsed = 'gemini-3.8-flash',
+    modelUsed = '@cf/google/gemma-4-26b-a4b-it',
     languageOverride?: SupportedLanguage
   ) {
     const isMuted = useZaraStore.getState().isMuted;
@@ -630,7 +630,7 @@ class ConversationOrchestrator {
         ? 'Warm, friendly real female best friend, natural conversational English pronunciation, casual and expressive'
         : 'Warm, friendly real Pakistani female best friend, natural Urdu and Roman Urdu conversational pronunciation, authentic Pakistani dostana accent and cadence, casual and expressive';
 
-    // Request Gemini TTS
+    // Request the Worker voice endpoint; browser speech synthesis is the current free fallback.
     apiFetch('/api/voice/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -675,7 +675,7 @@ class ConversationOrchestrator {
         'Confident',
         85,
         'high',
-        'gemini-3.8-flash',
+        '@cf/google/gemma-4-26b-a4b-it',
         'english'
       );
     } else if (lang === 'urdu') {
@@ -684,7 +684,7 @@ class ConversationOrchestrator {
         'Confident',
         85,
         'high',
-        'gemini-3.8-flash',
+        '@cf/google/gemma-4-26b-a4b-it',
         'urdu'
       );
     } else {
@@ -693,7 +693,7 @@ class ConversationOrchestrator {
         'Confident',
         85,
         'high',
-        'gemini-3.8-flash',
+        '@cf/google/gemma-4-26b-a4b-it',
         'roman_urdu'
       );
     }
