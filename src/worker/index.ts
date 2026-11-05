@@ -231,11 +231,41 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if(mismatch!==0)return json({error:'Invalid owner password.'},401);
     return json({success:true},200, { 'set-cookie': `zara_session=${encodeURIComponent(expected)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=43200` });
   }
-  const privatePath=/^\/api\/(memory|memories|settings|whatsapp|usage|automation|chat|voice|conversations)/.test(path);
+  const privatePath=/^\/api\/(memory|memories|settings|whatsapp|usage|automation|chat|voice|conversations|models)/.test(path);
   if(privatePath&&!authorized(request,env)) return json({error:env.ZARA_AUTH_TOKEN?'Unauthorized. Configure a valid ZARA session token.':'Private API is locked until ZARA_AUTH_TOKEN (32+ chars) is configured.'},401);
 
   if(method==='POST'&&path==='/api/auth/logout') {
     return json({success:true},200,{'set-cookie':'zara_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0'});
+  }
+  if(method==='GET'&&path==='/api/models') {
+    const modelId=env.WORKERS_AI_MODEL||WORKERS_MODEL;
+    return json({models:[{
+      modelId,
+      displayName:'Cloudflare Workers AI — Gemma 4 26B A4B',
+      capabilities:['chat','multilingual','reasoning','vision','high-thinking'],
+      isPrimary:true,
+      isFallback:false,
+      taskType:'chat',
+      isEnabled:Boolean(env.AI),
+      provider:'Cloudflare Workers AI',
+    }],voice:{input:'browser-speech-recognition',output:'browser-speech-synthesis'}});
+  }
+  if(method==='POST'&&path==='/api/models/test') {
+    const body=await readJson(request);
+    const modelId=env.WORKERS_AI_MODEL||WORKERS_MODEL;
+    if(body.modelId!==undefined&&body.modelId!==modelId)return json({status:'failed',error:'This Worker only exposes its configured Workers AI model.'},400);
+    const started=Date.now();
+    try {
+      const response=await workersAiGenerate(env,[{role:'user',parts:[{text:'Reply with exactly: ZARA AI connection successful.'}]}],'You are a connectivity test. Follow the user instruction exactly.',false);
+      const latencyMs=Date.now()-started;
+      await saveUsage(env,modelId,'connection_test',12,Math.ceil(response.length/4),latencyMs,'success');
+      return json({status:'success',modelId,provider:'Cloudflare Workers AI',latencyMs,message:response});
+    } catch(error) {
+      const latencyMs=Date.now()-started;
+      await saveUsage(env,modelId,'connection_test',12,0,latencyMs,'failed').catch(()=>{});
+      const detail=error instanceof Error?error.message:'Workers AI request failed';
+      return json({status:'failed',modelId,provider:'Cloudflare Workers AI',latencyMs,error:detail.slice(0,180)},503);
+    }
   }
   if(method==='POST'&&path==='/api/chat') return handleChat(request,env);
   if(method==='POST'&&path==='/api/voice/tts') return handleTts(request,env);
