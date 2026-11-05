@@ -293,7 +293,7 @@ Do not create duplicate route implementations without a clear ownership boundary
 - Authentication and D1-backed rate limiting: implemented and covered by tests; production staging runtime verification is pending.
 - Production DNS, production Worker deployment and changes to `main`: **not performed**.
 
-**Remaining external deployment gate:** configure the GitHub Actions secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `ZARA_AUTH_TOKEN`, plus the Actions variable `ALLOWED_ORIGIN`. Then manually run the staging workflow. Do not claim production readiness before live staging acceptance tests pass.
+**Remaining external deployment gate:** configure the GitHub Actions secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `ZARA_AUTH_TOKEN`. The staging origin is preconfigured in the workflow as `https://zara-personal-pakistani-ai-voice-assistant-staging.aparacha4848774.workers.dev`; override the `ALLOWED_ORIGIN` Actions variable only if the Worker URL changes. Then manually run the staging workflow. Do not claim production readiness before live staging acceptance tests pass.
 
 ## 12. Staging resource and secret setup
 
@@ -320,6 +320,8 @@ A manual-only workflow is available at `.github/workflows/deploy-staging.yml`. I
 Before manually running it, add these GitHub Actions repository secrets:
 
 - `CLOUDFLARE_API_TOKEN` — token with Workers Scripts edit, D1 read/write, and Worker secrets edit permissions for this account.
+- `CLOUDFLARE_ACCOUNT_ID` — Cloudflare account ID.
+- `ZARA_AUTH_TOKEN` — unique owner password, at least 32 characters.
 - `CLOUDFLARE_ACCOUNT_ID` — the Cloudflare account ID.
 - `ZARA_AUTH_TOKEN` — a unique random owner password (at least 32 characters).
 - No Gemini key is required by the current Worker implementation; its chat route uses the Workers AI binding directly. Do not add an unused Gemini secret.
@@ -327,6 +329,7 @@ Before manually running it, add these GitHub Actions repository secrets:
 
 Optional GitHub Actions variable:
 - `WHATSAPP_PHONE_NUMBER_ID` — official Meta Cloud API phone-number ID.
+- `ALLOWED_ORIGIN` — optional override for the preconfigured staging Worker origin.
 
 The workflow runs tests, TypeScript, Vite build and Wrangler dry-run before uploading secrets and deploying the staging Worker. Do not paste secret values into chat, commits, or issue comments. The deployment workflow has not been run because these external credentials are not present in the connected account session.
 
