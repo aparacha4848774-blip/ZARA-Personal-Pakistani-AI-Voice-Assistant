@@ -107,3 +107,29 @@ test('WhatsApp draft cancellation records cancelled status without dispatch',asy
  assert.equal(result.deliveryStatus,'cancelled');
  assert.match(result.notice,/Nothing was sent/);
 });
+
+
+test('authenticated model registry reports the configured Cloudflare Workers AI model',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/models',{headers:{Authorization:'Bearer '+'a'.repeat(48)}}),env());
+ const body:any=await response.json();
+ assert.equal(response.status,200);
+ assert.equal(body.models[0].modelId,'@cf/google/gemma-4-26b-a4b-it');
+ assert.equal(body.models[0].provider,'Cloudflare Workers AI');
+ assert.equal(body.voice.input,'browser-speech-recognition');
+});
+
+test('authenticated model connection test performs a real AI binding call and logs usage',async()=>{
+ let calls=0;
+ const e=env({AI:{run:async(model,inputs)=>{calls++;assert.equal(model,'@cf/google/gemma-4-26b-a4b-it');assert.ok(Array.isArray((inputs as any).messages));return {response:'ZARA AI connection successful.'};}}});
+ const response=await worker.fetch(new Request('https://zara.example/api/models/test',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({modelId:'@cf/google/gemma-4-26b-a4b-it'})}),e);
+ const body:any=await response.json();
+ assert.equal(response.status,200);
+ assert.equal(body.status,'success');
+ assert.equal(body.provider,'Cloudflare Workers AI');
+ assert.equal(calls,1);
+});
+
+test('model connection test rejects arbitrary model IDs',async()=>{
+ const response=await worker.fetch(new Request('https://zara.example/api/models/test',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+'a'.repeat(48)},body:JSON.stringify({modelId:'unapproved/model'})}),env());
+ assert.equal(response.status,400);
+});
