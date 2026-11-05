@@ -308,9 +308,15 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
   if(path==='/api/whatsapp/send'&&method==='POST') {
     const b=await readJson(request);
-    if(typeof b.id!=='string'||b.confirmed!==true)return json({error:'Explicit confirmation is required before sending.'},400);
+    if(typeof b.id!=='string'||!b.id.trim())return json({error:'A valid message draft ID is required.'},400);
     const msg=await env.DB.prepare('SELECT * FROM whatsapp_messages WHERE id=?').bind(b.id).first<Json>();
     if(!msg)return json({success:false,messageId:b.id,deliveryStatus:'failed',notice:'Message draft not found.'},404);
+    if(b.confirmed===false) {
+      const cancelled=await env.DB.prepare("UPDATE whatsapp_messages SET status='cancelled' WHERE id=? AND status='pending' AND user_confirmed=0").bind(b.id).run();
+      if((cancelled.meta?.changes??0)!==1)return json({success:false,messageId:b.id,deliveryStatus:'not_cancellable',notice:'This draft is no longer pending and cannot be cancelled.'},409);
+      return json({success:true,messageId:b.id,deliveryStatus:'cancelled',notice:'Message draft cancelled. Nothing was sent.'});
+    }
+    if(b.confirmed!==true)return json({error:'Explicit confirmation is required before sending.'},400);
     if(msg.status==='sent')return json({success:true,messageId:b.id,providerMessageId:msg.provider_message_id||null,deliveryStatus:'sent',idempotent:true,notice:'This message was already dispatched; no duplicate was sent.'});
     if(msg.status!=='pending')return json({success:false,messageId:b.id,deliveryStatus:'in_progress',notice:'This message is already being processed or is not dispatchable.'},409);
     if(!env.WHATSAPP_API_TOKEN||!env.WHATSAPP_PHONE_NUMBER_ID)return json({success:false,messageId:b.id,deliveryStatus:'not_configured',provider:'local_store',notice:'WhatsApp Cloud API credentials are not configured. Draft remains saved.'},503);
