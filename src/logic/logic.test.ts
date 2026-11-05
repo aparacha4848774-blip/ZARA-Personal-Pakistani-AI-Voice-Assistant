@@ -1123,39 +1123,15 @@ test('DurableStorage: concurrent writes and restart persistence survive safely',
 // GEMINI MODEL REGISTRY VERIFICATION TESTS
 // ==========================================
 
-test('Gemini Config: verifies all configured model IDs are supported official identifiers', async () => {
+test('AI Config: registry matches the configured Cloudflare Workers AI provider', async () => {
   const { DEFAULT_GEMINI_MODELS } = await import('../config/models.config.ts');
-
-  // Verify non-empty
-  assert.ok(DEFAULT_GEMINI_MODELS.length >= 4);
-
-  // Deprecated models must strictly NOT be present
-  const deprecatedList = [
-    'gemini-2.0-flash',
-    'gemini-2.0-pro',
-    'gemini-2.0-flash-thinking',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-pro',
-    'gemini-3.5-flash',
-  ];
-
-  for (const m of DEFAULT_GEMINI_MODELS) {
-    for (const dep of deprecatedList) {
-      assert.notEqual(
-        m.modelId,
-        dep,
-        `Deprecated model "${dep}" must not be present in model configuration`
-      );
-    }
-  }
-
-  // Official supported models in config
-  const modelIds = DEFAULT_GEMINI_MODELS.map((m) => m.modelId);
-  assert.ok(modelIds.includes('gemini-3.8-flash'), 'gemini-3.8-flash must be present');
-  assert.ok(modelIds.includes('gemini-4-argon'), 'gemini-4-argon must be present');
-  assert.ok(modelIds.includes('gemini-3.1-flash-lite'), 'gemini-3.1-flash-lite must be present');
-  assert.ok(modelIds.includes('gemini-3.8-flash-lite-tts'), 'gemini-3.8-flash-lite-tts must be present');
+  assert.equal(DEFAULT_GEMINI_MODELS.length, 1);
+  const [model] = DEFAULT_GEMINI_MODELS;
+  assert.equal(model.modelId, '@cf/google/gemma-4-26b-a4b-it');
+  assert.equal(model.isPrimary, true);
+  assert.equal(model.taskType, 'chat');
+  assert.ok(model.capabilities.includes('multilingual'));
+  assert.ok(!model.modelId.startsWith('gemini-'), 'The migration branch must not claim unused Gemini models are active.');
 });
 
 // ==========================================
