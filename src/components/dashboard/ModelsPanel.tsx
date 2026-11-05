@@ -34,7 +34,7 @@ export const ModelsPanel: React.FC = () => {
       });
       const data = await res.json();
 
-      const isSuccess = data.status === 'Connected' || data.status === 'success' || data.status === 'mock_success';
+      const isSuccess = data.status === 'success';
       const isQuota = data.status === 'Quota Exceeded' || data.quotaExhausted;
       const computedStatus: 'success' | 'failed' | 'quota' = isSuccess ? 'success' : isQuota ? 'quota' : 'failed';
 
@@ -45,7 +45,7 @@ export const ModelsPanel: React.FC = () => {
                 ...m,
                 lastTestedAt: new Date().toISOString(),
                 lastTestStatus: computedStatus,
-                latencyMs: data.latencyMs || 150,
+                latencyMs: typeof data.latencyMs === 'number' ? data.latencyMs : undefined,
               }
             : m
         )
@@ -58,7 +58,7 @@ export const ModelsPanel: React.FC = () => {
                 ...m,
                 lastTestedAt: new Date().toISOString(),
                 lastTestStatus: 'failed',
-                latencyMs: 999,
+                latencyMs: undefined,
               }
             : m
         )
@@ -75,12 +75,12 @@ export const ModelsPanel: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-brand font-bold text-white tracking-wide">
-              Gemini Model Manager
+              AI Model Manager
             </h2>
             <span className="text-sm font-urdu text-amber-400">(ماڈل منیجر)</span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Configured Gemini models registry with automatic fallback and latency diagnostics.
+            Live Cloudflare Workers AI registry and provider connection diagnostics.
           </p>
         </div>
 
@@ -163,7 +163,7 @@ export const ModelsPanel: React.FC = () => {
                   ) : model.lastTestStatus === 'quota' ? (
                     <span
                       className="flex items-center gap-1 text-amber-400 font-mono text-[11px]"
-                      title="Gemini Free Tier daily quota reached. Offline dostana engine is active."
+                      title="Workers AI provider or account quota is currently unavailable."
                     >
                       <Zap className="w-3.5 h-3.5" />
                       Quota (Offline Active)
