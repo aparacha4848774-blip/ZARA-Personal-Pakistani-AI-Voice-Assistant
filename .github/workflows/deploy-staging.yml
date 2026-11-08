@@ -1,6 +1,9 @@
 name: Deploy ZARA staging
 
 on:
+  push:
+    branches:
+      - cloudflare-workers-migration
   workflow_dispatch:
 
 permissions:
