@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "zara-personal-pakistani-ai-voice-assistant-staging",
+  "account_id": "5f0ea584c727d51f63ae68065e88ec8e",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-10-30",
   "assets": {
